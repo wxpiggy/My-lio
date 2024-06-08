@@ -28,7 +28,7 @@ namespace ROSNoetic
     public:
         AVIAProcess(/* args */){}
         ~AVIAProcess(){}
-        bool process(const sensor_msgs::PointCloud2 &msg,IESKFSlam::PointCloud&cloud){
+        bool process(const sensor_msgs::PointCloud2 &msg,IESKFSlam::PointCloud&cloud, const double &time_unit){
             pcl::PointCloud<avia_ros::Point> avia_cloud;
             pcl::fromROSMsg(msg,avia_cloud);
             cloud.cloud_ptr->clear();

@@ -14,6 +14,7 @@ namespace ROSNoetic {
         AVIA = 0, VELO = 1
 
     };
+
     class IESKFFrontEndWrapper {
     private:
         IESKFSlam::FrontEnd::Ptr front_end_ptr;
@@ -29,7 +30,7 @@ namespace ROSNoetic {
         IESKFSlam::PCLPointCloud curr_cloud;
         Eigen::Quaterniond curr_q;
         Eigen::Vector3d curr_t;
-        
+        double time_unit=0.0;
         void lidarCloudMsgCallBack(const sensor_msgs::PointCloud2Ptr &msg);
         void imuMsgCallBack(const sensor_msgs::ImuPtr &msg);
         //void odometryMsgCallBack(const nav_msgs::OdometryPtr &msg);

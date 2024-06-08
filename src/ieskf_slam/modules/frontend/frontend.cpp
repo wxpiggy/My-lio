@@ -29,7 +29,7 @@ namespace IESKFSlam {
             extrin_t << extrin_v[0], extrin_v[1], extrin_v[2];
         }
         readParam("use_inv", use_inv, 0);
-        
+        //std::cout << use_inv <<std::endl;
         map_ptr = std::make_shared<RectMapManager>(config_file_path, "map");
 
         fbpropagate_ptr = std::make_shared<FrontbackPropagate>();
@@ -145,7 +145,7 @@ namespace IESKFSlam {
         double imu_start_time = imu_deque.front().time_stamp.sec();
         double cloud_start_time = pointcloud_deque.front().time_stamp.sec();
         double cloud_end_time = pointcloud_deque.front().cloud_ptr->points.back().offset_time / 1e9 + cloud_start_time;
-
+        std::cout << imu_end_time - cloud_end_time << std::setprecision(20)<< std::endl;
         if (imu_end_time < cloud_end_time) {
             // std::cout << "1" << std::endl;
             return false;

@@ -7,8 +7,12 @@ namespace ROSNoetic
         nh.param<std::string>("wrapper/config_file_name",config_file_name,"");
         nh.param<std::string>("wrapper/lidar_topic",lidar_topic,"/lidar");
         nh.param<std::string>("wrapper/imu_topic",imu_topic,"/imu");
+        std::string time_unit_str;
+        nh.param<std::string>("wrapper/time_unit", time_unit_str,"1e-3");
+        //using nh.param<double> can not pass parameter, need to figure out why.
         front_end_ptr = std::make_shared<IESKFSlam::FrontEnd>(CONFIG_DIR+config_file_name,"front_end");
-
+        time_unit = stod(time_unit_str);
+        
         // 发布者和订阅者
         cloud_subscriber = nh.subscribe(lidar_topic,1000,&IESKFFrontEndWrapper::lidarCloudMsgCallBack,this);
         imu_subscriber = nh.subscribe(imu_topic,1000,&IESKFFrontEndWrapper::imuMsgCallBack,this);
@@ -19,6 +23,7 @@ namespace ROSNoetic
             lidar_process_ptr = std::make_shared<AVIAProcess>();
         } else if (lidar_type == VELO) {
             lidar_process_ptr = std::make_shared<VelodyneProcess>();
+
         } else {
             std::cout << "unsupport lidar type" << std::endl;
             exit(100);
@@ -27,9 +32,7 @@ namespace ROSNoetic
         path_pub = nh.advertise<nav_msgs::Path>("path",100);
         local_map_pub = nh.advertise<sensor_msgs::PointCloud2>("local_map",100);
         run();
-        // while(1){
-        //     std::cout << "@" << std::endl;
-        // }
+
     }
     
     IESKFFrontEndWrapper::~IESKFFrontEndWrapper()
@@ -37,13 +40,11 @@ namespace ROSNoetic
     }
     void IESKFFrontEndWrapper::lidarCloudMsgCallBack(const sensor_msgs::PointCloud2Ptr &msg){
         IESKFSlam::PointCloud cloud;
-        //std::cout << "lidar" << std::endl;
-        lidar_process_ptr->process(*msg,cloud);
+        lidar_process_ptr->process(*msg,cloud,time_unit);
         front_end_ptr->addPointCloud(cloud);
     }
     
     void IESKFFrontEndWrapper::imuMsgCallBack(const sensor_msgs::ImuPtr &msg){
-        //std::cout << "imu" << std::endl;
         IESKFSlam::IMU imu;
         imu.time_stamp.fromNsec(msg->header.stamp.toNSec());
         imu.acceleration = {msg->linear_acceleration.x,msg->linear_acceleration.y,msg->linear_acceleration.z};
@@ -54,7 +55,6 @@ namespace ROSNoetic
         ros::Rate rate(500);            
        
         while(ros::ok()){ 
-            //std::cout << ros::ok() << std::endl;
             rate.sleep();
             ros::spinOnce();
 
