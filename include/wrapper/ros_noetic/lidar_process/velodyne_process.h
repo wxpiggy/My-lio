@@ -25,22 +25,21 @@ namespace ROSNoetic
     {
     private:
     public:
-        bool process(const sensor_msgs::PointCloud2 &msg, IESKFSlam::PointCloud &cloud){
+        bool process(const sensor_msgs::PointCloud2 &msg, IESKFSlam::PointCloud &cloud, const double &time_unit){
             pcl::PointCloud<velodyne_ros::Point> rs_cloud;
             pcl::fromROSMsg(msg,rs_cloud);
             cloud.cloud_ptr->clear();
             double end_time = msg.header.stamp.toSec();
-            double start_time = end_time + rs_cloud[0].time;
+            double start_time = end_time + rs_cloud[0].time * time_unit;
+            
             for (auto &&p : rs_cloud)
             {
-                double point_time = p.time +end_time;
+                double point_time = p.time * time_unit+end_time;
                 IESKFSlam::Point point;
                 point.x = p.x;
                 point.y = p.y;
                 point.z = p.z;
                 point.intensity = p.intensity;
-
-                
                 point.offset_time = (point_time - start_time)*1e9;
                 point.ring = p.ring;
                 cloud.cloud_ptr->push_back(point);

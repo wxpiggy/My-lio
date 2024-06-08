@@ -129,7 +129,6 @@ namespace IESKFSlam
             es.block<3,1>(9,0) = s1.bg - s2.bg;
             es.block<3,1>(12,0) = s1.ba - s2.ba;
             es.block<3,1>(15,0) = s1.gravity - s2.gravity;
-            std::cout << es.block<3,1>(15,0) << std::endl;
             return es;
         }
     const IESKF::State18&IESKF::getX(){
