@@ -4,7 +4,8 @@ project(ieskf_slam)
 ## Compile as C++11, supported in ROS Kinetic and newer
 SET( CMAKE_CXX_FLAGS "-std=c++17 -O3" )
 add_compile_options(-std=c++17)
-add_definitions(-DPROJ_DIR="${CMAKE_CURRENT_SOURCE_DIR}")#从这里传给了global_define.h
+add_definitions(-DPROJ_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
+#从这里传给了global_define.h
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages

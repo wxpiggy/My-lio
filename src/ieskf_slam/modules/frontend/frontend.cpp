@@ -1,5 +1,6 @@
 #include "ieskf_slam/modules/frontend/frontend.h"
 
+#include "ieskf_slam/globaldefine.h"
 #include "pcl/common/transforms.h"
 
 namespace IESKFSlam {
@@ -29,7 +30,13 @@ namespace IESKFSlam {
             extrin_t << extrin_v[0], extrin_v[1], extrin_v[2];
         }
         readParam("use_inv", use_inv, 0);
-        //std::cout << use_inv <<std::endl;
+        
+        readParam("trajectory_save",trajectory_save,false);
+        readParam("trajectory_save_file", trajectory_save_file_name, std::string("result.txt"));
+        std::cout << trajectory_save << std::endl;
+        if (trajectory_save) {
+            trajectory_save_file.open(RESULT_DIR + trajectory_save_file_name, std::ios::out | std::ios::app);
+        }
         map_ptr = std::make_shared<RectMapManager>(config_file_path, "map");
 
         fbpropagate_ptr = std::make_shared<FrontbackPropagate>();
@@ -51,17 +58,18 @@ namespace IESKFSlam {
 
     }
 
-    FrontEnd::~FrontEnd() {}
+    FrontEnd::~FrontEnd() {
+
+        trajectory_save_file.close();
+    }
     void FrontEnd::addImu(const IMU &imu) { imu_deque.push_back(imu); }
     void FrontEnd::addPointCloud(const PointCloud &pointcloud) {
         pointcloud_deque.push_back(pointcloud);
         pcl::transformPointCloud(*pointcloud_deque.back().cloud_ptr, *pointcloud_deque.back().cloud_ptr,
                                  compositeTransform(extrin_r, extrin_t).cast<float>());
-        // std::cout << "receive cloud" << std::endl;
     }
     // void FrontEnd::addPose(const Pose& pose) {
     //     pose_deque.push_back(pose);
-    //     std::cout << "receive pose" << std::endl;
     // }
     bool FrontEnd::track() {
         MeasureGroup mg;
@@ -80,6 +88,12 @@ namespace IESKFSlam {
                 voxel_filter.filter(*filter_point_cloud_ptr);
                 ieskf_ptr->update();
                 auto x = ieskf_ptr->getX();
+                if(trajectory_save && trajectory_save_file.is_open()){
+                    trajectory_save_file << std::setprecision(15) << mg.lidar_end_time << " "
+                            << x.position.x() << " " << x.position.y() << " " << x.position.z()<< " "
+                            << x.rotation.x() << " " << x.rotation.y() << " " << x.rotation.z()<< " "
+                            << x.rotation.w() << std::endl;
+                }
                 map_ptr->addScan(filter_point_cloud_ptr, x.rotation, x.position);
                 return true;
             } else {
@@ -88,6 +102,14 @@ namespace IESKFSlam {
                 voxel_filter.setInputCloud(mg.cloud.cloud_ptr);
                 voxel_filter.filter(*filter_point_cloud_ptr);
                 invkf_ptr->update();
+                Eigen::Vector3d pos = invkf_ptr->getPosition();
+                Eigen::Quaterniond rot = Eigen::Quaterniond(invkf_ptr->getRotation());
+                if(trajectory_save && trajectory_save_file.is_open()){
+                    trajectory_save_file << std::setprecision(15) << mg.lidar_end_time << " "
+                            << pos.x() << " " << pos.y() << " " << pos.z()<< " "
+                            << rot.x() << " " << rot.y() << " " << rot.z()<< " "
+                            << rot.w() << std::endl;
+                }
                 // auto x = invkf_ptr->getX();
                 map_ptr->addScan(filter_point_cloud_ptr, Eigen::Quaterniond(invkf_ptr->getRotation()),
                                  invkf_ptr->getPosition());
@@ -103,7 +125,6 @@ namespace IESKFSlam {
 
         // while (!pose_deque.empty() &&
         //        pose_deque.front().time_stamp.nsec() < pointcloud_deque.front().time_stamp.nsec()) {
-        //     std::cout << "1" << std::endl;
         //     pose_deque.pop_front();
         // }
         // if (pose_deque.empty()) {
@@ -111,7 +132,6 @@ namespace IESKFSlam {
         // }
         // while (!pointcloud_deque.empty() &&
         //        pointcloud_deque.front().time_stamp.nsec() < pose_deque.front().time_stamp.nsec()) {
-        //     std::cout << "2" << std::endl;
         //     pointcloud_deque.pop_front();
         // }
         // if (pointcloud_deque.empty()) {
@@ -145,14 +165,11 @@ namespace IESKFSlam {
         double imu_start_time = imu_deque.front().time_stamp.sec();
         double cloud_start_time = pointcloud_deque.front().time_stamp.sec();
         double cloud_end_time = pointcloud_deque.front().cloud_ptr->points.back().offset_time / 1e9 + cloud_start_time;
-        std::cout << imu_end_time - cloud_end_time << std::setprecision(20)<< std::endl;
         if (imu_end_time < cloud_end_time) {
-            // std::cout << "1" << std::endl;
             return false;
         }
         if (cloud_end_time < imu_start_time) {  //无效点云，丢掉
             pointcloud_deque.pop_front();
-            // std::cout << "2" << std::endl;
             return false;
         }
 
@@ -170,7 +187,7 @@ namespace IESKFSlam {
             }
         }
         if (mg.imus.size() <= 5) {
-            // std::cout << "3" << std::endl;
+
             return false;
         }
         return true;
@@ -243,7 +260,7 @@ namespace IESKFSlam {
             IESKF::State18 x;
             x.rotation = Eigen::Quaterniond(invkf_ptr->getRotation());
             x.position = invkf_ptr->getPosition();
-            //std::cout << invkf_ptr->getPosition() << '\n'<< std::endl;
+
             return x;
         }
     }

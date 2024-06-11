@@ -10,6 +10,8 @@ front_end:
             0,0,1]
   extrin_t: [0,0,0.28]
   use_inv: 0
+  trajectory_save: true
+  trajectory_save_file: 20130110.txt
 ieskf:
   cov_gyroscope: 0.1
   cov_acceleration: 0.1

@@ -6,8 +6,8 @@
 ## TODO
 
 * [X] Add time_unit adaption for velodyne
-* [ ] Add trajectory and map save
-* [ ] Add gravity for invkf state
+* [X] Add trajectory and map save
+* [X] Add gravity for invkf state
 * [ ] Add IKdtree or Ivox to improve realtime performance
 * [ ] Add loop clousre to improve global consitency
 * [ ] Add extrinsic estimation
