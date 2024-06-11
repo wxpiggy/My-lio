@@ -52,9 +52,7 @@ namespace IESKFSlam {
         State15Inv X_inv;
         Eigen::Matrix<double, 18, 18> P;
         Eigen::Matrix<double, 12, 12> Q;
-        Eigen::Matrix<double, 15, 15> A_t;
-        Eigen::Matrix<double, 15, 15> Q_t;
-        int iter_times = 1;
+        int iter_times = 10;
     public:
         IESKF(const std::string &confif_path, const std::string &prefix);
         ~IESKF();

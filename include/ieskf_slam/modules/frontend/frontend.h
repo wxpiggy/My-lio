@@ -9,6 +9,7 @@
 #include "ieskf_slam/modules/frontbackPropagate/frontbackPropagate.h"
 #include "ieskf_slam/modules/frontend/lio_zh_model.h"
 #include "ieskf_slam/modules/invkf/invkf.h"
+#include <fstream>
 namespace IESKFSlam
 {
     class FrontEnd: private ModuleBase
@@ -33,6 +34,9 @@ namespace IESKFSlam
         Eigen::Quaterniond extrin_r;
         Eigen::Vector3d extrin_t;
         int use_inv;
+        bool trajectory_save;
+        std::string trajectory_save_file_name;
+        std::fstream trajectory_save_file;
     public:
         FrontEnd(const std::string &config_file_path,const std::string & prefix );
         ~FrontEnd();

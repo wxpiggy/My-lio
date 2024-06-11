@@ -33,9 +33,7 @@ namespace IESKFSlam {
             }
             in.acceleration = acc_avr;
             in.gyroscope = angvel_avr;
-            //std::cout << "111hello" << std::endl;
             invkf_ptr->predict(in, dt);  //前向
-            //std::cout << "21111hello" << std::endl;
             //需要记录结果以备后向传播
             //imu_state = invkf_ptr->getX();
             angvel_last = angvel_avr - invkf_ptr->getGyroscopeBias();
@@ -46,8 +44,7 @@ namespace IESKFSlam {
             double &&offs_t = tail.time_stamp.sec() - pcl_beg_time;
             IMUpose.emplace_back(offs_t, acc_s_last, angvel_last, invkf_ptr->getVelocity(), invkf_ptr->getPosition(), Eigen::Quaterniond(invkf_ptr->getRotation()));
         }
-        //std::cout << "here" << std::endl;
-        //std::cout << acc_s_last[2] << std::endl;
+
         //补充一次预测。因为imu的时间戳会小于lidar，多预测一个imu。
         dt = pcl_end_time - imu_end_time;
         invkf_ptr->predict(in, dt);
@@ -63,7 +60,6 @@ namespace IESKFSlam {
         // 从后往前对每个点去畸变，这里开始就是后向传播部分
         // 先从存储的递推姿态中从后往前取状态信息，然后把这个时间段内的点云去畸变
         for (auto it_kp = IMUpose.end() - 1; it_kp != IMUpose.begin(); it_kp--) {
-            //std::cout << "h2ere" << std::endl;
             // T_k-1的位姿 // 可以当作上图中A时刻的位姿状态
             auto head = it_kp - 1;
             auto tail = it_kp;
@@ -110,7 +106,6 @@ namespace IESKFSlam {
         Eigen::Vector3d angvel_avr, acc_avr, acc_imu, vel_imu, pos_imu;
         Eigen::Matrix3d R_imu;
         double dt = 0;
-        // std::cout << "hello" << std::endl;
         IMU in;
         for (auto it_imu = v_imu.begin(); it_imu < (v_imu.end() - 1); it_imu++) {
             auto &&head = *(it_imu);
@@ -137,7 +132,6 @@ namespace IESKFSlam {
             IMUpose.emplace_back(offs_t, acc_s_last, angvel_last, imu_state.velocity, imu_state.position,
                                  imu_state.rotation);
         }
-        //std::cout << acc_s_last[2] << std::endl;
         //补充一次预测。因为imu的时间戳会小于lidar，多预测一个imu。
         dt = pcl_end_time - imu_end_time;
         ieskf_ptr->predict(in, dt);

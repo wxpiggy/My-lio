@@ -156,7 +156,7 @@ namespace IESKFSlam{
   continue;
 }
 
-                //std::cout << "point value: " << point_world.x << " " <<point_world.y << " " << point_world.z << " " << point_world.intensity << std::endl;
+                
                 global_map_kdtree_ptr->nearestKSearch(point_world,NEAR_POINTS_NUM,point_ind,distance);
                 // . 是否搜索到足够的点以及最远的点到当前点的距离足够小(太远，就不认为这俩在一个平面)
                 if (distance.size()<NEAR_POINTS_NUM||distance[NEAR_POINTS_NUM-1]>5)
@@ -198,7 +198,7 @@ namespace IESKFSlam{
             }
             // 根据有效点的数量分配H Z的大小
             valid_points_num = loss_real.size();//真正有效的点;
-            H = Eigen::MatrixXd::Zero(valid_points_num, 15); 
+            H = Eigen::MatrixXd::Zero(valid_points_num, 18); 
             Z.resize(valid_points_num,1);
             for (int vi = 0; vi < valid_points_num; vi++)
             {

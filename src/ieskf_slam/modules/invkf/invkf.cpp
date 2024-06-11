@@ -3,11 +3,12 @@ namespace IESKFSlam{
     INVKF::INVKF(const std::string & config_path,const std::string &prefix):ModuleBase(config_path,prefix,"INVKF"){
         X_ = Eigen::MatrixXd::Identity(5,5);
         theta_ = Eigen::MatrixXd::Zero(6,1);
-        P_ = Eigen::MatrixXd::Identity(15,15);
+        P_ = Eigen::MatrixXd::Identity(18,18);
         //Q = Eigen::MatrixXd::Zero(15,15);
         double cov_gyroscope,cov_acceleration,cov_bias_acceleration,cov_bias_gyroscope;
         P_(9,9)   = P_(10,10) = P_(11,11) = 0.0001;
         P_(12,12) = P_(13,13) = P_(14,14) = 0.001;
+        P_(15,15) = P_(16,16) = P_(17,17) = 0.00001; 
         readParam("cov_gyroscope",cov_gyroscope,0.1);
         readParam("cov_acceleration",cov_acceleration,0.1);
         readParam("cov_bias_acceleration",cov_bias_acceleration,0.1);
@@ -17,6 +18,7 @@ namespace IESKFSlam{
         Q.block<3, 3>(3, 3).diagonal() = Eigen::Vector3d{cov_acceleration,cov_acceleration,cov_acceleration};
         Q.block<3, 3>(9, 9).diagonal() = Eigen::Vector3d{cov_bias_gyroscope,cov_bias_gyroscope,cov_bias_gyroscope};
         Q.block<3, 3>(12, 12).diagonal() = Eigen::Vector3d{cov_bias_acceleration,cov_bias_acceleration,cov_bias_acceleration};
+        gravity.setZero();
     }
     INVKF::~INVKF(){
 
@@ -26,7 +28,6 @@ namespace IESKFSlam{
         Eigen::Vector3d acceleration = imu.acceleration - theta_.tail(3);
         
         Eigen::Matrix3d rotation = X_.block(0,0,3,3);
-        //std::cout << dt << std::endl;
         Eigen::Vector3d velocity = X_.block(0,3,3,1);
         Eigen::Vector3d position = X_.block(0,4,3,1);
 
@@ -34,22 +35,19 @@ namespace IESKFSlam{
         Eigen::Matrix3d rotation_pred = rotation * so3Exp(phi);
         Eigen::Vector3d velocity_pred = velocity + (rotation * acceleration + gravity) * dt;
         Eigen::Vector3d position_pred = position + velocity * dt + 0.5 * (rotation * acceleration + gravity) * dt * dt;
-        Eigen::MatrixXd A = Eigen::MatrixXd::Zero(15,15);
-        //std::cout << position_pred[0] << std::endl;
+        Eigen::MatrixXd A = Eigen::MatrixXd::Zero(18,18);
         setRotation(rotation_pred);
         setVelocity(velocity_pred);
         setPosition(position_pred);
-        //std::cout << X_.block(0,3,3,1) << std::endl;
         A.block(3,0,3,3) = skewSymmetric(gravity) * dt;
         A.block(6,3,3,3) = Eigen::Matrix3d::Identity();
         A.block(0,9,3,3) = rotation * (-1) * dt;
         A.block(3,9,3,3) = -1 * skewSymmetric(velocity) * rotation * dt;
         A.block(3,12,3,3) = -1 * rotation * dt;
         A.block(6,9,3,3) = -1 * skewSymmetric(position) * rotation * dt;
-         //std::cout << "3"  << std::endl;
 
-        Eigen::MatrixXd Phi = Eigen::MatrixXd::Identity(15,15) + A;
-        Eigen::MatrixXd Adj = Eigen::MatrixXd::Identity(15,15);
+        Eigen::MatrixXd Phi = Eigen::MatrixXd::Identity(18,18) + A;
+        Eigen::MatrixXd Adj = Eigen::MatrixXd::Identity(18,18);
         
         Adj.block(0,0,9,9) = Adjoint_SEK3(X_);
         
@@ -70,8 +68,11 @@ namespace IESKFSlam{
         Eigen::VectorXd delta = K * z ;
         Eigen::MatrixXd dX = Exp_SEK3(delta.segment(0,9));
         Eigen::VectorXd dTheta = delta.segment(9, 6);
+        Eigen::Vector3d dGravity = delta.segment(15,3);
         setX(dX*X_);
         setTheta(theta_ + dTheta);
+        setGravity(gravity + dGravity);
+        std::cout <<"gravity : " << gravity[0] <<"," << gravity[1] <<","<< gravity[2] << std::endl;
         // auto x_k_k = X_;
 
         // auto x_1 = getErrorState(x_k_k,X_);
@@ -85,7 +86,7 @@ namespace IESKFSlam{
         // setX(dX*X_);
         // setTheta(theta_ + dTheta);
         
-        P_ = (Eigen::Matrix<double,15,15>::Identity()-K*H)*P_;
+        P_ = (Eigen::Matrix<double,18,18>::Identity()-K*H)*P_;
 
         
         return true;
