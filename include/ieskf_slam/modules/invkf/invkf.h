@@ -1,6 +1,7 @@
 #pragma once
 #include <Eigen/Dense>
 
+
 #include "ieskf_slam/math/SO3.h"
 #include "ieskf_slam/modules/module_base.h"
 #include "ieskf_slam/type/imu.h"
@@ -27,7 +28,7 @@ namespace IESKFSlam {
         void setAccelerometerBias(const Eigen::Vector3d& ba);
         void setGravity(const Eigen::Vector3d& g);
         Eigen::MatrixXd getErrorState(const Eigen::MatrixXd &s1, const Eigen::MatrixXd &s2);
-        Eigen::MatrixXd getErrorTheta(const Eigen::MatrixXd &s1, const Eigen::MatrixXd &s2);
+        Eigen::VectorXd getErrorTheta(const Eigen::VectorXd &s1, const Eigen::VectorXd &s2);
         INVKF(const std::string &confif_path, const std::string &prefix);
         ~INVKF();
         void predict(IMU &imu, double dt);

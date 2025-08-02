@@ -1,4 +1,6 @@
 #include "ieskf_slam/modules/ieskf/ieskf.h"
+#include "ieskf_slam/math/SO3.h"
+using namespace liepp;
 namespace IESKFSlam
 {
     IESKF::IESKF(const std::string & config_path,const std::string &prefix):ModuleBase(config_path,prefix,"IESKF")
@@ -36,7 +38,7 @@ namespace IESKFSlam
         imu.acceleration -= X.ba;
         imu.gyroscope -= X.bg;
         auto rotation = X.rotation.toRotationMatrix();
-        X.rotation = Eigen::Quaterniond(X.rotation.toRotationMatrix()*so3Exp((imu.gyroscope)*dt));
+        X.rotation = Eigen::Quaterniond(X.rotation.toRotationMatrix() * SO3<double>::exp((imu.gyroscope)*dt).asMatrix());
         X.rotation.normalize();
         X.position += X.velocity*dt;
         X.velocity += (rotation*(imu.acceleration)+X.gravity)*dt;
@@ -46,15 +48,15 @@ namespace IESKFSlam
         Eigen::Matrix<double,18 ,12>Fw;
         Fw.setZero();
         Fx.setIdentity();
-        Fx.block<3,3>(0,0) =    so3Exp(-1*imu.gyroscope*dt);
+        Fx.block<3,3>(0,0) = liepp::SO3<double>::exp(-1 * imu.gyroscope*dt).asMatrix();
 
-        Fx.block<3,3>(0,9) = -1*A_T(-imu.gyroscope*dt)*dt;
+        Fx.block<3,3>(0,9) = -1 * SO3d::A_T(-imu.gyroscope*dt)*dt;
 
         Fx.block<3,3>(3,6) =  Eigen::Matrix3d::Identity()*dt;
-        Fx.block<3,3>(6,0) = rotation*skewSymmetric(imu.acceleration)*dt*(-1);
-        Fx.block<3,3>(6,12) = rotation*dt*(-1);
+        Fx.block<3,3>(6,0) = rotation * liepp::SO3<double>::skew(imu.acceleration)*dt*(-1);
+        Fx.block<3,3>(6,12) = rotation*dt * (-1);
         Fx.block<3,3>(6,15) = Eigen::Matrix3d::Identity()*dt;
-        Fw.block<3,3>(0,0) = -1*A_T(-imu.gyroscope*dt)*dt;
+        Fw.block<3,3>(0,0) = -1*SO3d::A_T(-imu.gyroscope*dt)*dt;
         Fw.block<3,3>(6,3) = -1*rotation*dt;
         Fw.block<3,3>(9,6) = Fw.block<3,3>(12,9) = Eigen::Matrix3d::Identity()*dt;
         P = Fx*P*Fx.transpose()+Fw*Q*Fw.transpose(); 
@@ -69,13 +71,13 @@ namespace IESKFSlam
         Eigen::MatrixXd H_k;
         Eigen::Matrix<double,18,18> P_in_update;
         bool converge =true;
-        for (int i = 0; i < iter_times; i++)
+        for (int i = 0; i < 10; i++)
         {
             ///. 计算误差状态 J 
             Eigen::Matrix<double,18,1> error_state = getErrorState18(x_k_k,X);
             Eigen::Matrix<double,18,18> J_inv;
             J_inv.setIdentity();            
-            J_inv.block<3,3>(0,0) = A_T(error_state.block<3,1>(0,0));
+            J_inv.block<3,3>(0,0) = SO3d::A_T(error_state.block<3,1>(0,0));
             // 更新 P
             P_in_update = J_inv*P*J_inv.transpose();
 
@@ -90,7 +92,7 @@ namespace IESKFSlam
             Eigen::MatrixXd left = -1*K*z_k;
             Eigen::MatrixXd right = -1*(Eigen::Matrix<double,18,18>::Identity()-K*H_k)*J_inv*error_state; 
             Eigen::MatrixXd update_x = left+right;//误差的更新
-
+            
             // 收敛判断
             converge =true;
             for ( int idx = 0; idx < 18; idx++)
@@ -104,7 +106,7 @@ namespace IESKFSlam
                 
             }
             // 更新X
-            x_k_k.rotation = x_k_k.rotation.toRotationMatrix()*so3Exp(update_x.block<3,1>(0,0));
+            x_k_k.rotation = x_k_k.rotation.toRotationMatrix()*SO3d::exp(update_x.block<3,1>(0,0)).asMatrix();
             x_k_k.rotation.normalize();
             x_k_k.position = x_k_k.position+update_x.block<3,1>(3,0);
             x_k_k.velocity = x_k_k.velocity+update_x.block<3,1>(6,0);
@@ -112,18 +114,21 @@ namespace IESKFSlam
             x_k_k.ba = x_k_k.ba+update_x.block<3,1>(12,0);
             x_k_k.gravity = x_k_k.gravity+update_x.block<3,1>(15,0);
             if(converge){
+                //std::cout << i << std::endl;
                 break;
             }
         }
         cnt_++;
         X = x_k_k;
         P = (Eigen::Matrix<double,18,18>::Identity()-K*H_k)*P_in_update;
+
         return converge;
     }
     Eigen::Matrix<double,18,1> IESKF::getErrorState18(const State18 &s1, const  State18 &s2){
             Eigen::Matrix<double,18,1> es;
             es.setZero();
-            es.block<3,1>(0,0) = SO3Log(s2.rotation.toRotationMatrix().transpose() * s1.rotation.toRotationMatrix());
+           
+            es.block<3,1>(0,0) = SO3d::log(SO3d(s2.rotation.toRotationMatrix().transpose() * s1.rotation.toRotationMatrix()));
             es.block<3,1>(3,0) = s1.position - s2.position;
             es.block<3,1>(6,0) = s1.velocity - s2.velocity;
             es.block<3,1>(9,0) = s1.bg - s2.bg;

@@ -1,9 +1,10 @@
 #pragma once
+#include "ieskf_slam/math/SO3.h"
 #include "ieskf_slam/modules/ieskf/ieskf.h"
 #include "ieskf_slam/modules/invkf/invkf.h"
 #include "ieskf_slam/type/base_type.h"
 #include "ieskf_slam/math/geometry.h"
-
+using namespace liepp;
 namespace IESKFSlam{
     class LIOZHModel : public IESKF::CalcZHInterface{
         
@@ -92,7 +93,7 @@ namespace IESKFSlam{
             for (int vi = 0; vi < valid_points_num; vi++)
             {
                 // H 记录导数
-                Eigen::Vector3d dr = -1*loss_real[vi].second.transpose()*state.rotation.toRotationMatrix()*skewSymmetric(loss_real[vi].first);
+                Eigen::Vector3d dr = -1*loss_real[vi].second.transpose()*state.rotation.toRotationMatrix()*SO3d::skew(loss_real[vi].first);
                 H.block<1,3>(vi,0) = dr.transpose();
                 H.block<1,3>(vi,3) = loss_real[vi].second.transpose();
                 // Z记录距离
@@ -178,13 +179,13 @@ namespace IESKFSlam{
                     // . 记录残差
                     loss_type loss;
                     
-                    loss.thrid = -1 * pd; // 残差
+                    loss.thrid =  -pd; // 残差
                     loss.first = {point_world.x,point_world.y,point_world.z}; // imu系下点的坐标，用于求H
                     loss.second = pabcd.block<3,1>(0,0);// 平面法向量 用于求H
                     if (isnan(pd)||isnan(loss.second(0))||isnan(loss.second(1))||isnan(loss.second(2)))continue;
                     // .计算点和平面的夹角，夹角越小S越大。
                     double s = 1 - 0.9 * fabs(pd) / sqrt(loss.first.norm());
-                    if(s > 0.9 ){
+                    if(s > 0.90 ){
                         valid_points_num++;
                         loss_v[i]=(loss);
                         is_effect_point[i] = true;
@@ -198,12 +199,14 @@ namespace IESKFSlam{
             }
             // 根据有效点的数量分配H Z的大小
             valid_points_num = loss_real.size();//真正有效的点;
-            H = Eigen::MatrixXd::Zero(valid_points_num, 18); 
+            H = Eigen::MatrixXd::Zero(valid_points_num, 15); 
             Z.resize(valid_points_num,1);
             for (int vi = 0; vi < valid_points_num; vi++)
             {
                 // H 记录导数
-                Eigen::Vector3d dr = -1*loss_real[vi].second.transpose()*skewSymmetric(loss_real[vi].first);
+                Eigen::Vector3d dr = -1*loss_real[vi].second.transpose()*SO3d::skew(loss_real[vi].first);
+                //Eigen::Vector3d dr = -1*loss_real[vi].second.transpose()*state.rotation.toRotationMatrix()*skewSymmetric(loss_real[vi].first);
+                //Eigen::Vector3d dr = -1*loss_real[vi].second.transpose()*skewSymmetric( rotation_mat *loss_real[vi].first +position );
                 H.block<1,3>(vi,0) = dr.transpose();
                 H.block<1,3>(vi,6) = loss_real[vi].second.transpose();
                 // Z记录距离
