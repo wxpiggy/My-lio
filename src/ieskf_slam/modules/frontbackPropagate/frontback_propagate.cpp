@@ -1,4 +1,8 @@
+#include "ieskf_slam/math/SO3.h"
 #include "ieskf_slam/modules/frontbackPropagate/frontbackPropagate.h"
+
+
+
 namespace IESKFSlam {
     FrontbackPropagate::FrontbackPropagate() {}
     FrontbackPropagate::~FrontbackPropagate() {}
@@ -71,7 +75,7 @@ namespace IESKFSlam {
             for (; it_pcl->offset_time / 1e9 > head->time; it_pcl--) {
                 //计算 T_i，也就是下面的R_i和T_ei i处于k-1至k之间，i为点的时间戳。
                 dt = it_pcl->offset_time / 1e9 - head->time;
-                Eigen::Matrix3d R_i(R_imu * so3Exp(angvel_avr * dt));
+                Eigen::Matrix3d R_i(R_imu * liepp::SO3d::exp(angvel_avr * dt).asMatrix());
                 Eigen::Vector3d P_i(it_pcl->x, it_pcl->y, it_pcl->z);
                 // 这个变量不是SE(3),而是一个位置偏移。T_ei = t^i -t^C,t_i是 i时刻雷达系的位姿，t^C是扫描末尾的雷达位姿
                 // 我这里没有自己写，照抄了一部分fast-lio的代码
@@ -158,7 +162,7 @@ namespace IESKFSlam {
             for (; it_pcl->offset_time / 1e9 > head->time; it_pcl--) {
                 //计算 T_i，也就是下面的R_i和T_ei i处于k-1至k之间，i为点的时间戳。
                 dt = it_pcl->offset_time / 1e9 - head->time;
-                Eigen::Matrix3d R_i(R_imu * so3Exp(angvel_avr * dt));
+                Eigen::Matrix3d R_i(R_imu * liepp::SO3d::exp(angvel_avr * dt).asMatrix());
                 Eigen::Vector3d P_i(it_pcl->x, it_pcl->y, it_pcl->z);
                 // 这个变量不是SE(3),而是一个位置偏移。T_ei = t^i -t^C,t_i是 i时刻雷达系的位姿，t^C是扫描末尾的雷达位姿
                 // 我这里没有自己写，照抄了一部分fast-lio的代码

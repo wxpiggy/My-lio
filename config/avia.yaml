@@ -1,6 +1,6 @@
 wrapper:
   config_file_name: avia.yaml
-  lidar_topic: /livox/pointcloud
+  lidar_topic: /livox/lidar
   imu_topic: /livox/imu
   lidar_type: 0 # 0)avia
 
