@@ -105,7 +105,7 @@ namespace IESKFSlam{
         Eigen::Matrix<double,15,15> P_in_update;
         bool converge =true;
         
-        for (int i = 0; i < 5; i++){
+        for (int i = 0; i < 10; i++){
             SEn3<2,double> err = SEn3<2,double>::Identity();
             err.fromMatrix(getErrorState(x_k_k, X_));
             Eigen::Matrix<double, 5,5 > err_state_eigen = err.asMatrix();
@@ -133,7 +133,7 @@ namespace IESKFSlam{
             converge =true;
             for ( int idx = 0; idx < 15; idx++)
             {
-                if (update_x(idx,0)>0.01)
+                if (update_x(idx,0)>0.001)
                 {
                     converge = false;
                     break;
