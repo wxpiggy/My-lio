@@ -1,17 +1,17 @@
 wrapper:
-  config_file_name: avia.yaml
-  lidar_topic: /livox/lidar
-  imu_topic: /livox/imu
-  lidar_type: 0 # 0)avia
-
+  config_file_name: m2dgr.yaml
+  lidar_topic: velodyne_points
+  imu_topic: handsfree/imu
+  lidar_type: 1 # velodyne
+  time_unit: 1e-6
 front_end:
   extrin_r: [1,0,0,
             0,1,0,
             0,0,1]
-  extrin_t: [0.4165,0.2326,-0.2840]
+  extrin_t: [0,0,0.28]
   use_inv: 1
   trajectory_save: true
-  trajectory_save_file: m2dgr_street05.txt
+  trajectory_save_file: m2dgr.txt
 ieskf:
   cov_gyroscope: 0.1
   cov_acceleration: 0.1
