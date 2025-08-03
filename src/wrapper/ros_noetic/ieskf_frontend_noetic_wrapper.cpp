@@ -77,15 +77,15 @@ namespace ROSNoetic
         IESKFSlam::PCLPointCloud cloud = front_end_ptr->readCurrentPointCloud();
         pcl:: transformPointCloud(cloud,cloud,IESKFSlam::compositeTransform(X.rotation,X.position).cast<float>());
         // auto cloud =front_end_ptr->readCurrentPointCloud();
-        sensor_msgs::PointCloud2 msg;
-        pcl::toROSMsg(cloud,msg);
-        msg.header.frame_id = "map";
-        curr_cloud_pub.publish(msg);
+        // sensor_msgs::PointCloud2 msg;
+        // pcl::toROSMsg(cloud,msg);
+        // msg.header.frame_id = "map";
+        // curr_cloud_pub.publish(msg);
 
-        cloud = front_end_ptr->readCurrentLocalMap();
-        pcl::toROSMsg(cloud,msg);
-        msg.header.frame_id = "map";
-        local_map_pub.publish(msg);
+        // cloud = front_end_ptr->readCurrentLocalMap();
+        // pcl::toROSMsg(cloud,msg);
+        // msg.header.frame_id = "map";
+        // local_map_pub.publish(msg);
 
               
     }

@@ -35,7 +35,7 @@ namespace IESKFSlam {
         readParam("trajectory_save_file", trajectory_save_file_name, std::string("result.txt"));
         std::cout << trajectory_save << std::endl;
         if (trajectory_save) {
-            trajectory_save_file.open(RESULT_DIR + trajectory_save_file_name, std::ios::out | std::ios::app);
+            trajectory_save_file.open(RESULT_DIR + trajectory_save_file_name, std::ios::out );
         }
         map_ptr = std::make_shared<RectMapManager>(config_file_path, "map");
 

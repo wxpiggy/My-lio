@@ -1,7 +1,7 @@
 wrapper:
-  config_file_name: nclt.yaml
-  lidar_topic: points_raw
-  imu_topic: imu_raw
+  config_file_name: m2dgr.yaml
+  lidar_topic: velodyne_points
+  imu_topic: handsfree/imu
   lidar_type: 1 # velodyne
   time_unit: 1e-6
 front_end:
@@ -11,7 +11,7 @@ front_end:
   extrin_t: [0,0,0.28]
   use_inv: 1
   trajectory_save: true
-  trajectory_save_file: nclt.txt
+  trajectory_save_file: m2dgr.txt
 ieskf:
   cov_gyroscope: 0.1
   cov_acceleration: 0.1
