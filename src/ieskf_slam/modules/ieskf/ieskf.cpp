@@ -97,7 +97,7 @@ namespace IESKFSlam
             converge =true;
             for ( int idx = 0; idx < 18; idx++)
             {
-                if (update_x(idx,0)>0.001)
+                if (std::abs(update_x(idx,0))>0.001)
                 {
                     
                     converge = false;

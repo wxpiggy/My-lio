@@ -111,7 +111,7 @@ namespace IESKFSlam{
             Eigen::Matrix<double, 5,5 > err_state_eigen = err.asMatrix();
             // SEn3<2,double>::leftJacobian(SEn3<2,double>::log(err));
             Eigen::Matrix<double,15,15> J_inv = Eigen::Matrix<double,15,15>::Identity();
-            J_inv.block<9,9>(0,0) = SEn3<2,double>::leftJacobian(SEn3<2,double>::log(err)).inverse();
+            J_inv.block<9,9>(0,0) = SEn3<2,double>::leftJacobian(SEn3<2,double>::log(err));
             J_inv.block<6,6>(9,9) = Eigen::Matrix<double, 6, 6>::Identity();
             Eigen::MatrixXd z_k;
             Eigen::MatrixXd R_inv;
@@ -133,7 +133,7 @@ namespace IESKFSlam{
             converge =true;
             for ( int idx = 0; idx < 15; idx++)
             {
-                if (update_x(idx,0)>0.001)
+                if (std::abs(update_x(idx,0))>0.001)
                 {
                     converge = false;
                     break;
