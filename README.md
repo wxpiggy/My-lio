@@ -1,5 +1,4 @@
-# 个人学习项目，参考Fast-LIO2，基于eigen库实现多种滤波算法的激光惯性里程计（开发中）
-## visualization
+# 个人学习项目，参考Fast-LIO2，基于eigen库实现迭代右不变卡尔曼滤波（Iterated Right-Invariant Kalman Filter ）和迭代误差状态卡尔曼滤波（Iterated Error State Kalman Filter）和算法的激光惯性里程计（开发中）
 Faster lio on m2dgr street 04
 ![alt text](images/fasterlio.png)
 I-RIKF on m2dgr street 04
