@@ -27,7 +27,7 @@ namespace IESKFSlam
         std::shared_ptr<FrontbackPropagate> fbpropagate_ptr;
         LIOZHModel::Ptr lio_zh_model_ptr;
         LIOZHModelINV::Ptr lio_zh_model_inv_ptr;
-        PCLPointCloudPtr filter_point_cloud_ptr;
+        PCLPointCloudPtr filter_point_cloud_ptr, full_point_cloud_ptr;
         VoxelFilter voxel_filter;
         bool imu_inited = false;
         double imu_scale = 1;
@@ -37,6 +37,7 @@ namespace IESKFSlam
         bool trajectory_save;
         std::string trajectory_save_file_name;
         std::fstream trajectory_save_file;
+        
     public:
         FrontEnd(const std::string &config_file_path,const std::string & prefix );
         ~FrontEnd();
@@ -47,6 +48,8 @@ namespace IESKFSlam
         // 跟踪
         bool track();
         // 点云读取
+        const PCLPointCloud &readCurrentFullPointCloud();
+
         const PCLPointCloud &readCurrentPointCloud();
         const PCLPointCloud &readCurrentLocalMap();
         bool syncMeasureGroup(MeasureGroup &mg);

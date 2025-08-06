@@ -84,6 +84,7 @@ namespace IESKFSlam {
 
             if (!use_inv) {
                 fbpropagate_ptr->propagate(mg, ieskf_ptr);
+                full_point_cloud_ptr = mg.cloud.cloud_ptr;
                 voxel_filter.setInputCloud(mg.cloud.cloud_ptr);
                 voxel_filter.filter(*filter_point_cloud_ptr);
                 ieskf_ptr->update();
@@ -98,7 +99,7 @@ namespace IESKFSlam {
                 return true;
             } else {
                 fbpropagate_ptr->propagate(mg, invkf_ptr);
-
+                full_point_cloud_ptr = mg.cloud.cloud_ptr;
                 voxel_filter.setInputCloud(mg.cloud.cloud_ptr);
                 voxel_filter.filter(*filter_point_cloud_ptr);
                 invkf_ptr->update();
@@ -266,4 +267,8 @@ namespace IESKFSlam {
     }
 
     IESKF::State18 FrontEnd::readState_inv() {}
+    const PCLPointCloud &FrontEnd::readCurrentFullPointCloud()
+    {   
+        return *full_point_cloud_ptr;
+    }
 }  // namespace IESKFSlam

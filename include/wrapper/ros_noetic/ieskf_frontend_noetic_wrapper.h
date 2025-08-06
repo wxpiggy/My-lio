@@ -1,5 +1,6 @@
 #pragma once
 #include "ieskf_slam/modules/frontend/frontend.h"
+#include "ros/publisher.h"
 #include "ros/ros.h"
 #include "sensor_msgs/PointCloud2.h"
 #include "sensor_msgs/Imu.h"
@@ -24,6 +25,7 @@ namespace ROSNoetic {
         ros::Publisher curr_cloud_pub;
         ros::Publisher path_pub;
         ros::Publisher local_map_pub;
+        ros::Publisher cloud_pose_pub;
         std::shared_ptr<CommonLidarProcessInterface> lidar_process_ptr;
 
         // cur status
