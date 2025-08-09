@@ -143,7 +143,7 @@ namespace IESKFSlam{
             x_k_k =   SEn3<2,double>::Exp_SEK3(update_x.segment(0,9))*  x_k_k ;
             theta_k_k = theta_k_k + update_x.segment(9,6);
             if(converge){
-                std::cout << i << std::endl;
+                // std::cout << i << std::endl;
                 break;
             }
             //  std::cout << "update_x   " << update_x.size();

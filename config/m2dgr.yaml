@@ -1,4 +1,9 @@
+
 wrapper:
+  mode: realtime
+  bag_path: /dataset/m2dgr/street_04_lig.bag
+  speed_factor: 15.0
+  visualization_mode: pangolin
   config_file_name: m2dgr.yaml
   lidar_topic: velodyne_points
   imu_topic: handsfree/imu

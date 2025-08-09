@@ -12,7 +12,7 @@ add_definitions(-DPROJ_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
 add_definitions(-DMP_EN)
 add_definitions(-DMP_PROC_NUM=4)
   
-
+find_package(Pangolin REQUIRED)
 find_package(OpenMP QUIET)
 set(CMAKE_BUILD_TYPE "Release")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
@@ -22,6 +22,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
   sensor_msgs
+  rosbag
 )
 find_package(PCL REQUIRED)
 # YAML CPP
@@ -47,17 +48,23 @@ SET(IESKF_SLAM_FILE
     src/ieskf_slam/modules/map/rect_map_manager.cpp
     src/ieskf_slam/modules/frontbackPropagate/frontback_propagate.cpp
     src/ieskf_slam/modules/invkf/invkf.cpp
+    /catkin_ws/src/My-lio/src/tools/pangolin_visualizer.cpp
 
 )
 SET(NOETIC_FRONTEND_WRAPPER_FILE
     src/wrapper/ros_noetic/ieskf_frontend_noetic_wrapper.cpp
 )
+# find_package(slam_viewer REQUIRED)
+
 add_executable(ieskf_frontend_node src/app/ros_noetic/ieskf_noetic_running_node.cpp
 ${NOETIC_FRONTEND_WRAPPER_FILE}
 ${IESKF_SLAM_FILE})
+
 
 target_link_libraries(ieskf_frontend_node
   ${catkin_LIBRARIES}
   ${PCL_LIBRARIES}
 ${YAML_CPP_LIBRARIES}
+ ${Pangolin_LIBRARIES}
+# slam_viewer::slam_viewer
 )
