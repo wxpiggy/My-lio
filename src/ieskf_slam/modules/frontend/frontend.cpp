@@ -117,44 +117,12 @@ namespace IESKFSlam {
             }
         }
         return false;
-
-        // if (pose_deque.empty() || pointcloud_deque.empty()) {
-        //     return false;
-        // }
-        // // 寻找同一时刻的点云和位姿
-
-        // while (!pose_deque.empty() &&
-        //        pose_deque.front().time_stamp.nsec() < pointcloud_deque.front().time_stamp.nsec()) {
-        //     pose_deque.pop_front();
-        // }
-        // if (pose_deque.empty()) {
-        //     return false;
-        // }
-        // while (!pointcloud_deque.empty() &&
-        //        pointcloud_deque.front().time_stamp.nsec() < pose_deque.front().time_stamp.nsec()) {
-        //     pointcloud_deque.pop_front();
-        // }
-        // if (pointcloud_deque.empty()) {
-        //     return false;
-        // }
-        // // 滤波
-        // VoxelFilter vf;
-        // vf.setLeafSize(0.5, 0.5, 0.5);
-        // vf.setInputCloud(pointcloud_deque.front().cloud_ptr);
-        // vf.filter(*pointcloud_deque.front().cloud_ptr);
-
-        // Eigen::Matrix4f trans;
-        // trans.setIdentity();
-        // trans.block<3, 3>(0, 0) = pose_deque.front().rotation.toRotationMatrix().cast<float>();
-        // trans.block<3, 1>(0, 3) = pose_deque.front().position.cast<float>();
-        // pcl::transformPointCloud(*pointcloud_deque.front().cloud_ptr, current_pointcloud, trans);
-
-        // pointcloud_deque.pop_front();
-        // pose_deque.pop_front();
-        // return true;
     }
     const PCLPointCloud &FrontEnd::readCurrentPointCloud() { return *filter_point_cloud_ptr; }
     const PCLPointCloud &FrontEnd::readCurrentLocalMap() { return *map_ptr->getLocalMap(); }
+    const PCLPointCloud &FrontEnd::readGlobalMap() {
+    return *map_ptr->getGlobalMap();
+}
     bool FrontEnd::syncMeasureGroup(MeasureGroup &mg) {
         mg.imus.clear();
         mg.cloud.cloud_ptr->clear();

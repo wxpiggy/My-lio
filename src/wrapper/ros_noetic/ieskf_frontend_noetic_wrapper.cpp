@@ -1,5 +1,6 @@
 #include "wrapper/ros_noetic/ieskf_frontend_noetic_wrapper.h"
-
+#include "ieskf_slam/globaldefine.h"
+#include "ieskf_slam/tools/timer.h"
 
 namespace ROSNoetic {
 
@@ -8,7 +9,7 @@ IESKFFrontEndWrapper::IESKFFrontEndWrapper(ros::NodeHandle &nh) {
     nh.param<std::string>("wrapper/bag_path", bag_path_, "");
     nh.param<double>("wrapper/speed_factor", speed_factor_, 1.0);
     nh.param<std::string>("wrapper/visualization_mode", visualization_mode_, "rviz");
-
+    nh.param<bool>("wrapper/save_pcd", save_pcd, false);
     // std::string config_file_name, lidar_topic, imu_topic;
     nh.param<std::string>("wrapper/config_file_name", config_file_name, "");
     nh.param<std::string>("wrapper/lidar_topic", lidar_topic, "/lidar");
@@ -30,16 +31,16 @@ IESKFFrontEndWrapper::IESKFFrontEndWrapper(ros::NodeHandle &nh) {
         exit(100);
     }
 
-    curr_cloud_pub = nh.advertise<sensor_msgs::PointCloud2>("curr_cloud", 100);
-    path_pub = nh.advertise<nav_msgs::Path>("path", 100);
-    local_map_pub = nh.advertise<sensor_msgs::PointCloud2>("local_map", 100);
+    // curr_cloud_pub = nh.advertise<sensor_msgs::PointCloud2>("curr_cloud", 100);
+    // path_pub = nh.advertise<nav_msgs::Path>("path", 100);
+    // local_map_pub = nh.advertise<sensor_msgs::PointCloud2>("local_map", 100);
 
     if (mode_ == "realtime") {
         cloud_subscriber = nh.subscribe(lidar_topic, 1000, &IESKFFrontEndWrapper::lidarCloudMsgCallBack, this);
         imu_subscriber = nh.subscribe(imu_topic, 1000, &IESKFFrontEndWrapper::imuMsgCallBack, this);
     }
     if(visualization_mode_ == "pangolin"){
-        // initializePangolinVisualization();
+        initializePangolinVisualization();
     }
         
     run();
@@ -49,6 +50,8 @@ IESKFFrontEndWrapper::~IESKFFrontEndWrapper() {
     if (pangolin_viz_) {
         pangolin_viz_->stop();
     }
+
+    
 }
 
 void IESKFFrontEndWrapper::lidarCloudMsgCallBack(const sensor_msgs::PointCloud2Ptr &msg) {
@@ -88,7 +91,6 @@ void IESKFFrontEndWrapper::publishMsg() {
         path.poses.push_back(psd);
 
         path_pub.publish(path);
-
         sensor_msgs::PointCloud2 cloud_msg;
         pcl::toROSMsg(cloud, cloud_msg);
         cloud_msg.header.frame_id = "map";
@@ -102,7 +104,7 @@ void IESKFFrontEndWrapper::publishMsg() {
         local_map_pub.publish(cloud_msg);
     }
     else if (visualization_mode_ == "pangolin") {
-        // publishMsgPangolin(X, cloud);
+        publishMsgPangolin(X, cloud);
     }
 }
 
@@ -134,7 +136,7 @@ void IESKFFrontEndWrapper::playBagToIESKF_Streaming(const std::string &bag_path,
     rosbag::Bag bag;
     bag.open(bag_path, rosbag::bagmode::Read);
 
-    std::vector<std::string> topics = {"/"+imu_topic, "/"+lidar_topic};
+    std::vector<std::string> topics = {imu_topic,lidar_topic};
     
     std::cout << imu_topic << std::endl;
     std::cout << lidar_topic << std::endl;
@@ -155,21 +157,22 @@ void IESKFFrontEndWrapper::playBagToIESKF_Streaming(const std::string &bag_path,
         }
         ros::Time curr_time = msg.getTime();
 
-        if (first) {
-            prev_time = curr_time;
-            first = false;
-        } else {
-            double dt = (curr_time - prev_time).toSec();
-            prev_time = curr_time;
+if (first) {
+    prev_time = curr_time;
+    first = false;
+} else {
+    double dt = (curr_time - prev_time).toSec();
+    prev_time = curr_time;
 
-            if (dt > 0 && speed_factor > 0) {
-                dt /= speed_factor;
-                std::this_thread::sleep_for(std::chrono::duration<double>(dt));
-            }
-        }
+    if (dt > 0 && speed_factor > 0 && speed_factor != 1) {
+        // 1倍速不休眠，其他倍速根据倍数调整休眠时间
+        double sleep_time = dt / speed_factor;
+        std::this_thread::sleep_for(std::chrono::duration<double>(sleep_time));
+    }
+}
 
         count++;
-        ROS_INFO("Processing message #%d at time %f", count, curr_time.toSec());
+        // ROS_INFO("Processing message #%d at time %f", count, curr_time.toSec());
 
         if (msg.isType<sensor_msgs::Imu>()) {
             auto imu_msg = msg.instantiate<sensor_msgs::Imu>();
@@ -191,12 +194,20 @@ void IESKFFrontEndWrapper::playBagToIESKF_Streaming(const std::string &bag_path,
                 lidar_process_ptr->process(*cloud_msg, cloud, time_unit);
                 front_end_ptr->addPointCloud(cloud);
 
-                if (front_end_ptr->track()) {
+                bool track_result = false;
+                Timer([&](){
+                    track_result = front_end_ptr->track();
+                }, "完整流程");
+
+                if (track_result) {
                     publishMsg();
                 }
-            }
+
+                        }
         }
+
     }
+    savePCD();
     ROS_INFO("Finished playing bag with %d messages", count);
 
     bag.close();
@@ -205,6 +216,7 @@ void IESKFFrontEndWrapper::playBagToIESKF_Streaming(const std::string &bag_path,
 void IESKFFrontEndWrapper::run() {
     if (mode_ == "offline") {
         ROS_INFO_STREAM("Running in offline mode, playing bag: " << bag_path_ << " at speed factor: " << speed_factor_);
+       
         playBagToIESKF_Streaming(bag_path_, speed_factor_);
     } else {
         ROS_INFO("Running in realtime mode (ROS subscription).");
@@ -218,5 +230,13 @@ void IESKFFrontEndWrapper::run() {
         }
     }
 }
-
+void IESKFFrontEndWrapper::savePCD(){
+    auto &global_map = front_end_ptr->readGlobalMap();
+    if (!global_map.empty()) {
+        pcl::io::savePCDFileBinary(RESULT_DIR+"global_map.pcd", global_map);
+        ROS_INFO("Saved global map to global_map.pcd");
+    } else {
+        ROS_WARN("Global map is empty, nothing to save.");
+    }
+}
 }  // namespace ROSNoetic

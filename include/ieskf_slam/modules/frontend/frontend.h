@@ -49,6 +49,7 @@ namespace IESKFSlam
         // 点云读取
         const PCLPointCloud &readCurrentPointCloud();
         const PCLPointCloud &readCurrentLocalMap();
+        const PCLPointCloud &readGlobalMap();
         bool syncMeasureGroup(MeasureGroup &mg);
         void initState(MeasureGroup &mg);
         IESKF::State18 readState();

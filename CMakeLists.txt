@@ -48,17 +48,22 @@ SET(IESKF_SLAM_FILE
     src/ieskf_slam/modules/map/rect_map_manager.cpp
     src/ieskf_slam/modules/frontbackPropagate/frontback_propagate.cpp
     src/ieskf_slam/modules/invkf/invkf.cpp
-    /catkin_ws/src/My-lio/src/tools/pangolin_visualizer.cpp
+    src/tools/pangolin_visualizer.cpp
+    
 
 )
 SET(NOETIC_FRONTEND_WRAPPER_FILE
     src/wrapper/ros_noetic/ieskf_frontend_noetic_wrapper.cpp
 )
 # find_package(slam_viewer REQUIRED)
-
+SET(LIB_FILE
+# lib/scan_context/Scancontext.cpp
+lib/ikd_Tree/ikd_Tree.cpp
+)
 add_executable(ieskf_frontend_node src/app/ros_noetic/ieskf_noetic_running_node.cpp
 ${NOETIC_FRONTEND_WRAPPER_FILE}
-${IESKF_SLAM_FILE})
+${IESKF_SLAM_FILE}
+${LIB_FILE})
 
 
 target_link_libraries(ieskf_frontend_node

@@ -10,6 +10,7 @@
 #include "wrapper/ros_noetic/lidar_process/velodyne_process.h"
 #include "ieskf_slam/globaldefine.h"
 #include "ieskf_slam/tools/pangolin_visualizer.h"
+#include <Eigen/src/Core/Matrix.h>
 #include <rosbag/bag.h>
 #include <rosbag/view.h>
 #include <boost/foreach.hpp>
@@ -48,7 +49,7 @@ private:
     std::string mode_;        // "realtime" 或 "offline"
     std::string bag_path_;
     double speed_factor_ = 1.0;
-
+    bool save_pcd;
     // 可视化模式 "rviz" 或 "pangolin"
     std::string visualization_mode_ = "rviz";
 
@@ -59,7 +60,7 @@ private:
     void run();
     void playBagToIESKF_Streaming(const std::string &bag_path, double speed_factor);
     void initializePangolinVisualization();
-
+    void savePCD();    
 public:
     IESKFFrontEndWrapper(ros::NodeHandle &nh);
     ~IESKFFrontEndWrapper();

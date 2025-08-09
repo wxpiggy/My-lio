@@ -46,6 +46,7 @@ private:
     void drawPointCloudColorMode(const pcl::PointCloud<pcl::PointXYZI>& cloud);
     void drawCurrentPose();
     void drawCoordinateFrame();
+    void BuildIntensityTable();
 
 private:
     // 线程和同步
@@ -57,6 +58,8 @@ private:
     pangolin::OpenGlRenderState s_cam_;
     pangolin::View d_cam_;
 
+    std::vector<Eigen::Vector4d> intensity_color_table_pcl_;
+
     // UI控件
     std::unique_ptr<pangolin::Var<float>> menu_point_size_;
     std::unique_ptr<pangolin::Var<int>> menu_trajectory_length_;
@@ -64,7 +67,8 @@ private:
     std::unique_ptr<pangolin::Var<bool>> menu_show_current_cloud_;
     std::unique_ptr<pangolin::Var<bool>> menu_show_local_map_;
     std::unique_ptr<pangolin::Var<bool>> menu_background_dark_;
-    std::unique_ptr<pangolin::Var<int>> menu_point_color_mode_;
+    std::unique_ptr<pangolin::Var<bool>> menu_point_color_mode_;
+    std::unique_ptr<pangolin::Var<bool>> menu_auto_follow_;
 
     // 点云数据
     pcl::PointCloud<pcl::PointXYZI>::Ptr current_cloud_;
@@ -73,7 +77,17 @@ private:
     // 位姿轨迹数据
     std::deque<Pose> trajectory_;
     Pose current_pose_;
+Eigen::Vector4d IntensityToRgbPCL(double val) const {
+    const int table_size = static_cast<int>(intensity_color_table_pcl_.size());
+    double idx_f = val * (table_size - 1);
+    int idx0 = static_cast<int>(std::floor(idx_f)) % table_size;
+    int idx1 = (idx0 + 1) % table_size;
+    double t = idx_f - std::floor(idx_f);
 
+    const Eigen::Vector4d& c0 = intensity_color_table_pcl_[idx0];
+    const Eigen::Vector4d& c1 = intensity_color_table_pcl_[idx1];
+    return c0 * (1.0 - t) + c1 * t;
+}
     // 静态颜色常量
     static constexpr float trajectory_color_[3] = {0.0f, 0.8f, 0.2f};
     static constexpr float current_cloud_color_[3] = {0.0f, 0.6f, 1.0f};

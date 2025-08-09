@@ -71,7 +71,7 @@ namespace IESKFSlam
         Eigen::MatrixXd H_k;
         Eigen::Matrix<double,18,18> P_in_update;
         bool converge =true;
-        for (int i = 0; i < 10; i++)
+        for (int i = 0; i < 3; i++)
         {
             ///. 计算误差状态 J 
             Eigen::Matrix<double,18,1> error_state = getErrorState18(x_k_k,X);

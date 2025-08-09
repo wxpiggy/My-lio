@@ -3,7 +3,12 @@ wrapper:
   lidar_topic: /livox/lidar
   imu_topic: /livox/imu
   lidar_type: 0 # 0)avia
-
+  mode: offline #offline or realtime
+  bag_path: /dataset/avia/HKU_MB_2020-09-20-13-34-51.bag
+  save_pcd: true
+  speed_factor: 10.0
+  visualization_mode: pangolin #pangolin or rviz
+  ime_unit: 1e-6
 front_end:
   extrin_r: [1,0,0,
             0,1,0,

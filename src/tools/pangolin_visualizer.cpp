@@ -1,4 +1,5 @@
 #include "ieskf_slam/tools/pangolin_visualizer.h"
+#include <Eigen/src/Core/Matrix.h>
 #include <pangolin/pangolin.h>
 #include <chrono>
 #include <iostream>
@@ -43,6 +44,40 @@ void PangolinVisualizer::stop() {
     }
 }
 
+Eigen::Matrix4d getFollowCamPose(const PangolinVisualizer::Pose& robot_pose) {
+    // 机器人位姿
+    Eigen::Vector3d pos = robot_pose.position;
+    Eigen::Matrix3d rot = robot_pose.rotation.toRotationMatrix();
+
+    // 定义相机相对机器人坐标系的位置，例如在机器人后方2米，高度1米
+    Eigen::Vector3d cam_offset(-2.0, 0.0, 1.0);
+
+    // 计算相机世界坐标 = 机器人位置 + 旋转 * 偏移
+    Eigen::Vector3d cam_pos = pos + rot * cam_offset;
+
+    // 相机目标点就是机器人当前的位置
+    Eigen::Vector3d target = pos;
+
+    // 定义相机的上方向（一般用世界坐标系的Z轴）
+    Eigen::Vector3d up(0, 0, 1);
+
+    // 使用类似 gluLookAt 实现，构造4x4视图矩阵
+    Eigen::Vector3d z_axis = (cam_pos - target).normalized();  // 视线方向
+    Eigen::Vector3d x_axis = up.cross(z_axis).normalized();
+    Eigen::Vector3d y_axis = z_axis.cross(x_axis).normalized();
+
+    Eigen::Matrix4d view = Eigen::Matrix4d::Identity();
+
+    view(0,0) = x_axis.x(); view(0,1) = x_axis.y(); view(0,2) = x_axis.z();
+    view(1,0) = y_axis.x(); view(1,1) = y_axis.y(); view(1,2) = y_axis.z();
+    view(2,0) = z_axis.x(); view(2,1) = z_axis.y(); view(2,2) = z_axis.z();
+
+    view(0,3) = -x_axis.dot(cam_pos);
+    view(1,3) = -y_axis.dot(cam_pos);
+    view(2,3) = -z_axis.dot(cam_pos);
+
+    return view;
+}
 // 更新位姿
 void PangolinVisualizer::updatePose(const Eigen::Vector3d& position, const Eigen::Quaterniond& rotation) {
     std::lock_guard<std::mutex> lock(data_mutex_);
@@ -52,7 +87,28 @@ void PangolinVisualizer::updatePose(const Eigen::Vector3d& position, const Eigen
         trajectory_.pop_front();
     }
 }
-
+void PangolinVisualizer::BuildIntensityTable() {
+    intensity_color_table_pcl_.reserve(255 * 6);
+    auto make_color = [](int r, int g, int b) -> Eigen::Vector4d { return Eigen::Vector4d(r / 255.0f, g / 255.0f, b / 255.0f, 0.2f); };
+    for (int i = 0; i < 256; i++) {
+        intensity_color_table_pcl_.emplace_back(make_color(255, i, 0));
+    }
+    for (int i = 0; i < 256; i++) {
+        intensity_color_table_pcl_.emplace_back(make_color(255 - i, 0, 255));
+    }
+    for (int i = 0; i < 256; i++) {
+        intensity_color_table_pcl_.emplace_back(make_color(0, 255, i));
+    }
+    for (int i = 0; i < 256; i++) {
+        intensity_color_table_pcl_.emplace_back(make_color(255, 255 - i, 0));
+    }
+    for (int i = 0; i < 256; i++) {
+        intensity_color_table_pcl_.emplace_back(make_color(i, 0, 255));
+    }
+    for (int i = 0; i < 256; i++) {
+        intensity_color_table_pcl_.emplace_back(make_color(0, 255, 255 - i));
+    }
+}
 // 更新当前点云
 void PangolinVisualizer::updateCurrentCloud(const pcl::PointCloud<pcl::PointXYZI>& cloud) {
     std::lock_guard<std::mutex> lock(data_mutex_);
@@ -78,12 +134,16 @@ void PangolinVisualizer::initializePangolin() {
     glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
 
     s_cam_ = pangolin::OpenGlRenderState(
-        pangolin::ProjectionMatrix(1200, 800, 600, 600, 600, 400, 0.1, 1000),
-        pangolin::ModelViewLookAt(0, -5, -10, 0, 0, 0, 0.0, -1.0, 0.0)
+         pangolin::ProjectionMatrix(1920, 1080, 960, 960, 960, 540, 0.1, 1000),
+            pangolin::ModelViewLookAt(
+        0, 0, 200,   // 摄像机位置：X=0, Y=0, Z=100，很高的高度
+        0, 0, 0,     // 观察目标点：原点
+        1, 0, 0      // 摄像机“上”方向，这里用X轴方向，保证摄像机是“正顶视”（从上往下看）
+    )
     );
 
     // 左侧200像素菜单面板
-    pangolin::CreatePanel("menu").SetBounds(0.0, 1.0, 0.0, pangolin::Attach::Pix(200));
+    pangolin::CreatePanel("menu").SetBounds(0.0, 1.0, 0.0, pangolin::Attach::Pix(300));
 
     // 右侧3D视图，自适应窗口宽高变化
     d_cam_ = pangolin::CreateDisplay()
@@ -96,17 +156,49 @@ void PangolinVisualizer::initializePangolin() {
     menu_show_trajectory_ = std::make_unique<pangolin::Var<bool>>("menu.Show Trajectory", true, true);
     menu_show_current_cloud_ = std::make_unique<pangolin::Var<bool>>("menu.Show Current Cloud", true, true);
     menu_show_local_map_ = std::make_unique<pangolin::Var<bool>>("menu.Show Local Map", true, true);
-    menu_background_dark_ = std::make_unique<pangolin::Var<bool>>("menu.Dark Background", true, true);
+    menu_background_dark_ = std::make_unique<pangolin::Var<bool>>("menu.Dark Background", false, false);
+    menu_auto_follow_ = std::make_unique<pangolin::Var<bool>>("menu.Auto Follow", true, true);
     
     // 新增点云颜色模式切换 0 = Z轴, 1 = Intensity
-    menu_point_color_mode_ = std::make_unique<pangolin::Var<int>>("menu.Point Color Mode", 0, 0, 1);
+    menu_point_color_mode_ = std::make_unique<pangolin::Var<bool>>("menu.Point Color Mode", true,false);
+    BuildIntensityTable();
 }
+pangolin::OpenGlMatrix PoseToOpenGlMatrix(const PangolinVisualizer::Pose& pose) {
+    Eigen::Matrix4d mat = Eigen::Matrix4d::Identity();
+    mat.block<3,3>(0,0) = pose.rotation.toRotationMatrix();
+    mat.block<3,1>(0,3) = pose.position;
 
+    pangolin::OpenGlMatrix ogl_mat;
+    // Pangolin是列主序的4x4矩阵
+    for (int r = 0; r < 4; ++r) {
+        for (int c = 0; c < 4; ++c) {
+            ogl_mat.m[c * 4 + r] = static_cast<float>(mat(r,c));
+        }
+    }
+    return ogl_mat;
+}
 // 渲染循环
 void PangolinVisualizer::renderLoop() {
     initializePangolin();
 
+    // 初始化自动跟随菜单
+
+    // 用户交互状态和计时器
+    bool user_interacting_ = false;
+    auto last_interaction_time = std::chrono::steady_clock::now();
+
+    // 你需要在鼠标事件里（可用Pangolin事件回调或poll）设置 user_interacting_ = true，刷新 last_interaction_time
+    // 这里简单示范一个超时机制，若1秒无交互，重置为 false
+    auto interaction_timeout = std::chrono::seconds(1);
+
     while (!pangolin::ShouldQuit() && !should_stop_) {
+        // 处理用户交互检测（此处无事件接口，需要你自行添加事件监听）
+        // 简单逻辑示例，建议在你鼠标回调中调用此函数更新状态
+        auto now = std::chrono::steady_clock::now();
+        if (user_interacting_ && now - last_interaction_time > interaction_timeout) {
+            user_interacting_ = false;
+        }
+
         if (*menu_background_dark_) {
             glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         } else {
@@ -114,15 +206,22 @@ void PangolinVisualizer::renderLoop() {
         }
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        d_cam_.Activate(s_cam_);
-
-        auto bounds = d_cam_.GetBounds();
-        int w = static_cast<int>(bounds.w);
-        int h = static_cast<int>(bounds.h);
-        glViewport(static_cast<int>(bounds.l), static_cast<int>(bounds.b), w, h);
-
+        // 动态设置视角
         {
             std::lock_guard<std::mutex> lock(data_mutex_);
+
+            if (*menu_auto_follow_ && !user_interacting_ && !trajectory_.empty()) {
+                s_cam_.Follow(PoseToOpenGlMatrix(current_pose_));
+            }
+            // 否则用户自由操作，保留现有视角，不强制修改
+
+            d_cam_.Activate(s_cam_);
+
+            auto bounds = d_cam_.GetBounds();
+            int w = static_cast<int>(bounds.w);
+            int h = static_cast<int>(bounds.h);
+            glViewport(static_cast<int>(bounds.l), static_cast<int>(bounds.b), w, h);
+
             if (*menu_show_trajectory_) drawTrajectory();
             if (*menu_show_current_cloud_ && !current_cloud_->empty()) drawPointCloudColorMode(*current_cloud_);
             if (*menu_show_local_map_ && !local_map_->empty()) drawPointCloudColorMode(*local_map_);
@@ -131,6 +230,7 @@ void PangolinVisualizer::renderLoop() {
         }
 
         pangolin::FinishFrame();
+
         std::this_thread::sleep_for(std::chrono::milliseconds(30));
     }
     pangolin::DestroyWindow("IESKF SLAM Visualization");
@@ -140,33 +240,24 @@ void PangolinVisualizer::renderLoop() {
 void PangolinVisualizer::drawTrajectory() {
     if (trajectory_.size() < 2) return;
 
-    glLineWidth(3.0f);
+    glLineWidth(6.0f);  // 加粗轨迹线宽，默认是3.0f，你可以调大
+    glColor4f(1.0f, 0.0f, 0.0f, 1.0f); // 红色，且不透明
     glBegin(GL_LINE_STRIP);
-    float alpha_step = 1.0f / trajectory_.size();
-    float alpha = 0.3f;
     for (const auto& pose : trajectory_) {
-        glColor4f(trajectory_color_[0], trajectory_color_[1], trajectory_color_[2], alpha);
         glVertex3f(pose.position.x(), pose.position.y(), pose.position.z());
-        alpha = std::min(1.0f, alpha + alpha_step);
     }
     glEnd();
 
-    glPointSize(4.0f);
+    glPointSize(8.0f); // 点大小也调大些
     glBegin(GL_POINTS);
-    size_t recent_points = std::min(trajectory_.size(), size_t(50));
-    auto recent_start = trajectory_.end() - recent_points;
-
-    alpha = 0.5f;
-    alpha_step = 0.5f / recent_points;
-    for (auto it = recent_start; it != trajectory_.end(); ++it) {
-        glColor4f(trajectory_color_[0], trajectory_color_[1], trajectory_color_[2], alpha);
-        glVertex3f(it->position.x(), it->position.y(), it->position.z());
-        alpha = std::min(1.0f, alpha + alpha_step);
+    for (const auto& pose : trajectory_) {
+        glVertex3f(pose.position.x(), pose.position.y(), pose.position.z());
     }
     glEnd();
 }
 
-// 根据颜色模式绘制点云（支持Z轴和Intensity）
+
+
 void PangolinVisualizer::drawPointCloudColorMode(const pcl::PointCloud<pcl::PointXYZI>& cloud) {
     if (cloud.empty()) return;
 
@@ -175,7 +266,6 @@ void PangolinVisualizer::drawPointCloudColorMode(const pcl::PointCloud<pcl::Poin
 
     glPointSize(*menu_point_size_);
 
-    // 预先找强度和Z范围，用于归一化颜色映射
     float min_intensity = std::numeric_limits<float>::max();
     float max_intensity = std::numeric_limits<float>::lowest();
     float min_z = std::numeric_limits<float>::max();
@@ -183,16 +273,15 @@ void PangolinVisualizer::drawPointCloudColorMode(const pcl::PointCloud<pcl::Poin
 
     for (const auto& p : cloud.points) {
         if (std::isfinite(p.intensity)) {
-            if (p.intensity < min_intensity) min_intensity = p.intensity;
-            if (p.intensity > max_intensity) max_intensity = p.intensity;
+            min_intensity = std::min(min_intensity, p.intensity);
+            max_intensity = std::max(max_intensity, p.intensity);
         }
         if (std::isfinite(p.z)) {
-            if (p.z < min_z) min_z = p.z;
-            if (p.z > max_z) max_z = p.z;
+            min_z = std::min(min_z, p.z);
+            max_z = std::max(max_z, p.z);
         }
     }
 
-    // 防止除0
     float intensity_range = max_intensity - min_intensity;
     if (intensity_range < 1e-6) intensity_range = 1.0f;
     float z_range = max_z - min_z;
@@ -202,21 +291,15 @@ void PangolinVisualizer::drawPointCloudColorMode(const pcl::PointCloud<pcl::Poin
     for (const auto& p : cloud.points) {
         if (!std::isfinite(p.x) || !std::isfinite(p.y) || !std::isfinite(p.z)) continue;
 
-        float r=1.f, g=1.f, b=1.f;
-
-        if (*menu_point_color_mode_ == 0) {  // 根据Z轴高度上色
-            float norm_z = (p.z - min_z) / z_range;
-            r = norm_z;
-            g = 0.5f * (1.0f - norm_z);
-            b = 1.0f - norm_z;
-        } else if (*menu_point_color_mode_ == 1) {  // 根据Intensity上色
-            float norm_i = (p.intensity - min_intensity) / intensity_range;
-            r = norm_i;
-            g = 1.0f - norm_i;
-            b = 0.0f;
+        float norm_val = 0.f;
+        if (*menu_point_color_mode_ == false) {  // Z轴模式
+            norm_val = (p.z - min_z) / z_range;
+        } else if (*menu_point_color_mode_ == true) {  // Intensity模式
+            norm_val = (p.intensity - min_intensity) / intensity_range;
         }
 
-        glColor4f(r, g, b, 0.8f);
+        Eigen::Vector4d c = IntensityToRgbPCL(norm_val);
+        glColor4f(c.x(), c.y(), c.z(), c.w());
         glVertex3f(p.x, p.y, p.z);
     }
     glEnd();

@@ -1,12 +1,13 @@
 
 wrapper:
-  mode: realtime
+  mode: offline #offline or realtime
   bag_path: /dataset/m2dgr/street_04_lig.bag
-  speed_factor: 15.0
-  visualization_mode: pangolin
+  save_pcd: true
+  speed_factor: 2.0
+  visualization_mode: pangolin #pangolin or rviz
   config_file_name: m2dgr.yaml
-  lidar_topic: velodyne_points
-  imu_topic: handsfree/imu
+  lidar_topic: /velodyne_points
+  imu_topic: /handsfree/imu
   lidar_type: 1 # velodyne
   time_unit: 1e-6
 front_end:

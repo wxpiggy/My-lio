@@ -9,6 +9,7 @@ namespace IESKFSlam {
     class RectMapManager : private ModuleBase {
     private:
         PCLPointCloudPtr local_map_ptr;
+        PCLPointCloudPtr global_map_ptr;
         KDTreePtr kdtree_ptr;
         float map_side_length_2;
         float map_resolution;
@@ -21,6 +22,7 @@ namespace IESKFSlam {
                      const Eigen::Quaterniond &att_q,
                      const Eigen::Vector3d &pos_t);
         PCLPointCloudConstPtr getLocalMap();
+        PCLPointCloudConstPtr getGlobalMap();
         KDTreeConstPtr readKDtree();
     };
 }  // namespace IESKFSlam
