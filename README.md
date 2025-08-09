@@ -9,14 +9,17 @@ I-RIKF on m2dgr street 04
 ![alt text](images/ours.png)
 map
 ![alt text](images/map.png)
+pangolin
+![alt text](images/pangolin.png)
 ## TODO
 
 * [X] Add time_unit adaption for velodyne
 * [X] Add trajectory and map save
 * [X] Implement the iterated version of Right Invariant Kalman Filter
+* [X] Add Pangolin,rid of stupid rviz (rviz still optinal though)
 * [ ] Add gravity for invkf state
-* [ ] Add IKdtree or Ivox to improve realtime performance
-* [ ] Add loop clousre to improve global consitency
+* [ ] Add IKdtree or Ivox to improve realtime performance (on the job)
+* [X] Add loop clousre to improve global consitency (in branch dev/loop)
 * [ ] Add extrinsic estimation
 
 ## Acknowledgments

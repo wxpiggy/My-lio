@@ -3,7 +3,7 @@ wrapper:
   mode: offline #offline or realtime
   bag_path: /dataset/m2dgr/street_04_lig.bag
   save_pcd: true
-  speed_factor: 2.0
+  speed_factor: 12.0
   visualization_mode: pangolin #pangolin or rviz
   config_file_name: m2dgr.yaml
   lidar_topic: /velodyne_points
