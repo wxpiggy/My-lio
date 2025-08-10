@@ -41,6 +41,7 @@ private:
 
     // 当前状态
     IESKFSlam::PCLPointCloud curr_cloud;
+
     Eigen::Quaterniond curr_q;
     Eigen::Vector3d curr_t;
     double time_unit = 0.0;

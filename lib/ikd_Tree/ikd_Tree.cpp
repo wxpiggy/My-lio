@@ -1,4 +1,5 @@
 #include "ikd_Tree.h"
+#include "ieskf_slam/type/point.h"
 
 /*
 Description: ikd-Tree: an incremental k-d tree for robotic applications 
@@ -1447,3 +1448,4 @@ template class KD_TREE<ikdTree_PointType>;
 template class KD_TREE<pcl::PointXYZ>;
 template class KD_TREE<pcl::PointXYZI>;
 template class KD_TREE<pcl::PointXYZINormal>;
+template class KD_TREE<IESKFSlam::Point>;

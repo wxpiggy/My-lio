@@ -2,6 +2,8 @@
 
 #include "ieskf_slam/globaldefine.h"
 #include "pcl/common/transforms.h"
+#include <cstddef>
+#include <pangolin/video/video_interface.h>
 
 namespace IESKFSlam {
     FrontEnd::FrontEnd(const std::string &config_file_path, const std::string &prefix)
@@ -37,13 +39,15 @@ namespace IESKFSlam {
         if (trajectory_save) {
             trajectory_save_file.open(RESULT_DIR + trajectory_save_file_name, std::ios::out );
         }
+
         map_ptr = std::make_shared<RectMapManager>(config_file_path, "map");
 
         fbpropagate_ptr = std::make_shared<FrontbackPropagate>();
-        
+
        
 
         filter_point_cloud_ptr = pcl::make_shared<PCLPointCloud>();
+
         if (!use_inv) {
             ieskf_ptr = std::make_shared<IESKF>(config_file_path, "ieskf");
             lio_zh_model_ptr = std::make_shared<LIOZHModel>();
@@ -55,6 +59,7 @@ namespace IESKFSlam {
             invkf_ptr->calc_zh_ptr = lio_zh_model_inv_ptr;
             lio_zh_model_inv_ptr->prepare(map_ptr->readKDtree(), filter_point_cloud_ptr, map_ptr->getLocalMap());
         }
+
 
     }
 
@@ -73,17 +78,21 @@ namespace IESKFSlam {
     // }
     bool FrontEnd::track() {
         MeasureGroup mg;
-
+        
         if (syncMeasureGroup(mg)) {
+            
             if (!imu_inited) {
                 map_ptr->reset();
+
                 map_ptr->addScan(mg.cloud.cloud_ptr, Eigen::Quaterniond::Identity(), Eigen::Vector3d::Zero());
+
                 initState(mg);
                 return false;
             }
 
             if (!use_inv) {
                 fbpropagate_ptr->propagate(mg, ieskf_ptr);
+                undistorted_point_cloud_ptr = mg.cloud.cloud_ptr;
                 voxel_filter.setInputCloud(mg.cloud.cloud_ptr);
                 voxel_filter.filter(*filter_point_cloud_ptr);
                 ieskf_ptr->update();
@@ -98,7 +107,7 @@ namespace IESKFSlam {
                 return true;
             } else {
                 fbpropagate_ptr->propagate(mg, invkf_ptr);
-
+                undistorted_point_cloud_ptr = mg.cloud.cloud_ptr;
                 voxel_filter.setInputCloud(mg.cloud.cloud_ptr);
                 voxel_filter.filter(*filter_point_cloud_ptr);
                 invkf_ptr->update();
@@ -123,6 +132,9 @@ namespace IESKFSlam {
     const PCLPointCloud &FrontEnd::readGlobalMap() {
     return *map_ptr->getGlobalMap();
 }
+    const PCLPointCloud &FrontEnd::readUndistortedPointCloud(){
+        return *undistorted_point_cloud_ptr;
+    };
     bool FrontEnd::syncMeasureGroup(MeasureGroup &mg) {
         mg.imus.clear();
         mg.cloud.cloud_ptr->clear();
@@ -233,5 +245,5 @@ namespace IESKFSlam {
         }
     }
 
-    IESKF::State18 FrontEnd::readState_inv() {}
+    // IESKF::State18 FrontEnd::readState_inv() {return nullptr;}
 }  // namespace IESKFSlam

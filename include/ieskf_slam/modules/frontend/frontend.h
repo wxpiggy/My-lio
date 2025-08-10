@@ -21,12 +21,14 @@ namespace IESKFSlam
         std::deque<PointCloud> pointcloud_deque;
         std::deque<Pose> pose_deque; 
         PCLPointCloud current_pointcloud;
+        
         std::shared_ptr<IESKF> ieskf_ptr;
         std::shared_ptr<INVKF> invkf_ptr;
         std::shared_ptr<RectMapManager> map_ptr;
         std::shared_ptr<FrontbackPropagate> fbpropagate_ptr;
         LIOZHModel::Ptr lio_zh_model_ptr;
         LIOZHModelINV::Ptr lio_zh_model_inv_ptr;
+        PCLPointCloudPtr undistorted_point_cloud_ptr;
         PCLPointCloudPtr filter_point_cloud_ptr;
         VoxelFilter voxel_filter;
         bool imu_inited = false;
@@ -48,6 +50,7 @@ namespace IESKFSlam
         bool track();
         // 点云读取
         const PCLPointCloud &readCurrentPointCloud();
+        const PCLPointCloud &readUndistortedPointCloud();
         const PCLPointCloud &readCurrentLocalMap();
         const PCLPointCloud &readGlobalMap();
         bool syncMeasureGroup(MeasureGroup &mg);

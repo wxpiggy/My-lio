@@ -15,7 +15,7 @@ front_end:
             0,1,0,
             0,0,1]
   extrin_t: [0,0,0.28]
-  use_inv: 1
+  use_inv: 0
   trajectory_save: true
   trajectory_save_file: m2dgr.txt
 ieskf:

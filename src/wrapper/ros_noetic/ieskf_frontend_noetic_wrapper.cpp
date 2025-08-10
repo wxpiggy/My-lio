@@ -17,7 +17,6 @@ IESKFFrontEndWrapper::IESKFFrontEndWrapper(ros::NodeHandle &nh) {
     std::string time_unit_str;
     nh.param<std::string>("wrapper/time_unit", time_unit_str, "1e-3");
     time_unit = std::stod(time_unit_str);
-
     front_end_ptr = std::make_shared<IESKFSlam::FrontEnd>(CONFIG_DIR + config_file_name, "front_end");
 
     int lidar_type = 0;
@@ -70,7 +69,7 @@ void IESKFFrontEndWrapper::imuMsgCallBack(const sensor_msgs::ImuPtr &msg) {
 
 void IESKFFrontEndWrapper::publishMsg() {
     auto X = front_end_ptr->readState();
-    IESKFSlam::PCLPointCloud cloud = front_end_ptr->readCurrentPointCloud();
+    IESKFSlam::PCLPointCloud cloud = front_end_ptr->readUndistortedPointCloud();
     pcl::transformPointCloud(cloud, cloud,
                             IESKFSlam::compositeTransform(X.rotation, X.position).cast<float>());
 
@@ -133,6 +132,7 @@ void IESKFFrontEndWrapper::initializePangolinVisualization() {
     }
 }
 void IESKFFrontEndWrapper::playBagToIESKF_Streaming(const std::string &bag_path, double speed_factor) {
+    TimerLoggerInit(RESULT_DIR+"track_time.txt");
     rosbag::Bag bag;
     bag.open(bag_path, rosbag::bagmode::Read);
 
@@ -197,7 +197,7 @@ if (first) {
                 bool track_result = false;
                 Timer([&](){
                     track_result = front_end_ptr->track();
-                }, "完整流程");
+                }, "完整流程", RESULT_DIR+"track_time.txt");
 
                 if (track_result) {
                     publishMsg();

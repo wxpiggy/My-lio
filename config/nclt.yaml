@@ -3,7 +3,7 @@ wrapper:
   mode: offline #offline or realtime
   bag_path: /dataset/nclt/20130110.bag
   save_pcd: true
-  speed_factor: 10.0
+  speed_factor: 20.0
   visualization_mode: pangolin #pangolin or rviz
   config_file_name: nclt.yaml
   lidar_topic: points_raw

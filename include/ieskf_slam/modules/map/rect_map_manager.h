@@ -23,6 +23,7 @@ namespace IESKFSlam {
                      const Eigen::Vector3d &pos_t);
         PCLPointCloudConstPtr getLocalMap();
         PCLPointCloudConstPtr getGlobalMap();
-        KDTreeConstPtr readKDtree();
+        const KDTreePtr readKDtree() ;
+        // KDTreeConstPtr readKDtree();
     };
 }  // namespace IESKFSlam

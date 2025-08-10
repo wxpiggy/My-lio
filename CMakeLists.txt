@@ -23,6 +23,7 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   sensor_msgs
   rosbag
+  rosbag_storage
 )
 find_package(PCL REQUIRED)
 # YAML CPP
