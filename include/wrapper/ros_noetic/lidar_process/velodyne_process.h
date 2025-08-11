@@ -23,7 +23,7 @@ namespace ROSNoetic {
 
 class VelodyneProcess : public CommonLidarProcessInterface {
 public:
-    VelodyneProcess(int num_scans = 32, int point_filter_num = 6, double blind = 4)
+    VelodyneProcess(int num_scans = 32, int point_filter_num = 1, double blind = 4)
         : num_scans_(num_scans), point_filter_num_(point_filter_num), blind_(blind) {}
 
     bool process(const sensor_msgs::PointCloud2 &msg, IESKFSlam::PointCloud &cloud, const double &time_unit) override {

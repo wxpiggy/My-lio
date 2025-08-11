@@ -111,19 +111,28 @@ void IESKFFrontEndWrapper::publishMsgPangolin(const IESKFSlam::IESKF::State18 &s
                                               const IESKFSlam::PCLPointCloud &cloud) {
     if (!pangolin_viz_) return;
     
-    // 更新位姿
-    pangolin_viz_->updatePose(state.position, state.rotation);
-    
-    // 转换PCL点云格式
+    // 转换当前帧点云格式
     pcl::PointCloud<pcl::PointXYZI> xyz_cloud;
     pcl::copyPointCloud(cloud, xyz_cloud);
-    pangolin_viz_->updateCurrentCloud(xyz_cloud);
     
-    // 更新局部地图
-    IESKFSlam::PCLPointCloud local_map = front_end_ptr->readCurrentLocalMap();
-    pcl::PointCloud<pcl::PointXYZI> xyz_local_map;
-    pcl::copyPointCloud(local_map, xyz_local_map);
-    pangolin_viz_->updateLocalMap(xyz_local_map);
+    // 方案3a: 总是累积点云（推荐）
+    // pangolin_viz_->updateCurrentScan(xyz_cloud, state.position, state.rotation);
+    
+    // 方案3b: 或者有条件地累积点云
+    // 例如：只在位移超过一定阈值时才累积，减少冗余数据
+    
+    static Eigen::Vector3d last_position = Eigen::Vector3d::Zero();
+    double distance = (state.position - last_position).norm();
+    
+    if (distance > 0.5) {  // 位移超过10cm才累积
+        pangolin_viz_->updateCurrentScan(xyz_cloud, state.position, state.rotation);
+        last_position = state.position;
+    } else {
+        // 只更新位姿，不累积点云
+        pangolin_viz_->updatePose(state.position, state.rotation);
+        pangolin_viz_->updateCurrentCloud(xyz_cloud);
+    }
+    
 }
 void IESKFFrontEndWrapper::initializePangolinVisualization() {
     if (visualization_mode_ == "pangolin") {
@@ -174,37 +183,37 @@ if (first) {
         count++;
         // ROS_INFO("Processing message #%d at time %f", count, curr_time.toSec());
 
-        if (msg.isType<sensor_msgs::Imu>()) {
-            auto imu_msg = msg.instantiate<sensor_msgs::Imu>();
-            if (imu_msg) {
-                IESKFSlam::IMU imu;
-                imu.time_stamp.fromNsec(imu_msg->header.stamp.toNSec());
-                imu.acceleration = {imu_msg->linear_acceleration.x,
-                                    imu_msg->linear_acceleration.y,
-                                    imu_msg->linear_acceleration.z};
-                imu.gyroscope = {imu_msg->angular_velocity.x,
-                                 imu_msg->angular_velocity.y,
-                                 imu_msg->angular_velocity.z};
-                front_end_ptr->addImu(imu);
-            }
-        } else if (msg.isType<sensor_msgs::PointCloud2>()) {
-            auto cloud_msg = msg.instantiate<sensor_msgs::PointCloud2>();
-            if (cloud_msg) {
-                IESKFSlam::PointCloud cloud;
-                lidar_process_ptr->process(*cloud_msg, cloud, time_unit);
-                front_end_ptr->addPointCloud(cloud);
-
-                bool track_result = false;
-                Timer([&](){
-                    track_result = front_end_ptr->track();
-                }, "完整流程", RESULT_DIR+"track_time.txt");
-
-                if (track_result) {
-                    publishMsg();
-                }
-
-                        }
+       auto imu_msg = msg.instantiate<sensor_msgs::Imu>();
+        if (imu_msg) {
+            IESKFSlam::IMU imu;
+            imu.time_stamp.fromNsec(imu_msg->header.stamp.toNSec());
+            imu.acceleration = {imu_msg->linear_acceleration.x,
+                                imu_msg->linear_acceleration.y,
+                                imu_msg->linear_acceleration.z};
+            imu.gyroscope = {imu_msg->angular_velocity.x,
+                            imu_msg->angular_velocity.y,
+                            imu_msg->angular_velocity.z};
+            front_end_ptr->addImu(imu);
+            // 这里如果有耗时需求可以用 Timer::Evaluate 包裹
         }
+
+        auto cloud_msg = msg.instantiate<sensor_msgs::PointCloud2>();
+        if (cloud_msg) {
+            IESKFSlam::PointCloud cloud;
+            lidar_process_ptr->process(*cloud_msg, cloud, time_unit);
+
+            front_end_ptr->addPointCloud(cloud);
+
+            bool track_result = false;
+            Timer([&]() {
+                track_result = front_end_ptr->track();
+            }, "完整流程", RESULT_DIR + "track_time.txt");
+
+            if (track_result) {
+                publishMsg();
+            }
+        }
+        //livox to do
 
     }
     savePCD();

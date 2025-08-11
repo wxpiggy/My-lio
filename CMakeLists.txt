@@ -72,5 +72,4 @@ target_link_libraries(ieskf_frontend_node
   ${PCL_LIBRARIES}
 ${YAML_CPP_LIBRARIES}
  ${Pangolin_LIBRARIES}
-# slam_viewer::slam_viewer
 )

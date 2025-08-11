@@ -6,6 +6,7 @@
 #include <mutex>
 #include <thread>
 #include <cmath>
+#include <pcl/common/transforms.h>
 
 // 静态颜色初始化
 constexpr float PangolinVisualizer::trajectory_color_[3];
@@ -25,7 +26,9 @@ PangolinVisualizer::Pose::Pose(const Eigen::Vector3d& pos, const Eigen::Quaterni
 PangolinVisualizer::PangolinVisualizer()
     : should_stop_(false),
       current_cloud_(new pcl::PointCloud<pcl::PointXYZI>),
-      local_map_(new pcl::PointCloud<pcl::PointXYZI>()) {}
+      accumulated_map_(new pcl::PointCloud<pcl::PointXYZI>),
+      max_accumulated_points_(1000000),  // 默认最大累积100万个点
+      downsample_rate_(1) {}  // 默认不降采样
 
 PangolinVisualizer::~PangolinVisualizer() {
     stop();
@@ -44,11 +47,24 @@ void PangolinVisualizer::stop() {
     }
 }
 
+// 设置累积地图参数
+void PangolinVisualizer::setAccumulationParams(size_t max_points, int downsample_rate) {
+    std::lock_guard<std::mutex> lock(data_mutex_);
+    max_accumulated_points_ = max_points;
+    downsample_rate_ = std::max(1, downsample_rate);  // 至少为1
+}
+
+// 清除累积的地图
+void PangolinVisualizer::clearAccumulatedMap() {
+    std::lock_guard<std::mutex> lock(data_mutex_);
+    accumulated_map_->clear();
+}
+
 Eigen::Matrix4d getFollowCamPose(const PangolinVisualizer::Pose& robot_pose) {
     // 机器人位姿
     Eigen::Vector3d pos = robot_pose.position;
     Eigen::Matrix3d rot = robot_pose.rotation.toRotationMatrix();
-
+    
     // 定义相机相对机器人坐标系的位置，例如在机器人后方2米，高度1米
     Eigen::Vector3d cam_offset(-2.0, 0.0, 1.0);
 
@@ -78,7 +94,8 @@ Eigen::Matrix4d getFollowCamPose(const PangolinVisualizer::Pose& robot_pose) {
 
     return view;
 }
-// 更新位姿
+
+// 更新位姿（保持原有功能）
 void PangolinVisualizer::updatePose(const Eigen::Vector3d& position, const Eigen::Quaterniond& rotation) {
     std::lock_guard<std::mutex> lock(data_mutex_);
     current_pose_ = Pose(position, rotation);
@@ -87,8 +104,65 @@ void PangolinVisualizer::updatePose(const Eigen::Vector3d& position, const Eigen
         trajectory_.pop_front();
     }
 }
+
+// 新增：更新当前时刻的点云和位姿，并累积到全局地图
+void PangolinVisualizer::updateCurrentScan(const pcl::PointCloud<pcl::PointXYZI>& current_scan, 
+                                          const Eigen::Vector3d& position, 
+                                          const Eigen::Quaterniond& rotation) {
+    std::lock_guard<std::mutex> lock(data_mutex_);
+    
+    // 更新当前位姿和轨迹
+    current_pose_ = Pose(position, rotation);
+    trajectory_.push_back(current_pose_);
+    if (trajectory_.size() > static_cast<size_t>(*menu_trajectory_length_)) {
+        trajectory_.pop_front();
+    }
+    
+    // 保存当前帧点云（用于显示当前帧，可选）
+    *current_cloud_ = current_scan;
+    
+    // 将当前帧点云转换到世界坐标系并累积
+    accumulatePointCloud(current_scan, position, rotation);
+}
+
+// 内部函数：累积点云到全局地图
+void PangolinVisualizer::accumulatePointCloud(const pcl::PointCloud<pcl::PointXYZI>& scan,
+                                             const Eigen::Vector3d& position,
+                                             const Eigen::Quaterniond& rotation) {
+    if (scan.empty()) return;
+    
+    pcl::PointCloud<pcl::PointXYZI> processed_scan = scan;
+    
+    // 降采样处理（如果需要）
+    if (downsample_rate_ > 1) {
+        pcl::PointCloud<pcl::PointXYZI> downsampled_scan;
+        for (size_t i = 0; i < processed_scan.size(); i += downsample_rate_) {
+            downsampled_scan.push_back(processed_scan[i]);
+        }
+        processed_scan = std::move(downsampled_scan);
+    }
+    
+    // 累积到全局地图
+    *accumulated_map_ += processed_scan;
+    
+    // 如果累积点数过多，进行简单的降采样（每隔一定数量保留一个点）
+    if (accumulated_map_->size() > max_accumulated_points_) {
+        pcl::PointCloud<pcl::PointXYZI> downsampled_map;
+        size_t step = accumulated_map_->size() / max_accumulated_points_ + 1;
+        
+        for (size_t i = 0; i < accumulated_map_->size(); i += step) {
+            downsampled_map.push_back((*accumulated_map_)[i]);
+        }
+        
+        *accumulated_map_ = std::move(downsampled_map);
+        
+        std::cout << "Accumulated map downsampled to " << accumulated_map_->size() 
+                  << " points (max: " << max_accumulated_points_ << ")" << std::endl;
+    }
+}
+
 void PangolinVisualizer::BuildIntensityTable() {
-intensity_color_table_pcl_.clear();
+    intensity_color_table_pcl_.clear();
     intensity_color_table_pcl_.reserve(256);
     
     for (int i = 0; i < 256; i++) {
@@ -126,17 +200,21 @@ intensity_color_table_pcl_.clear();
         
         intensity_color_table_pcl_.emplace_back(r, g, b, 0.8f);
     }
+
 }
-// 更新当前点云
+
+// 更新当前点云（保持原有接口兼容性）
 void PangolinVisualizer::updateCurrentCloud(const pcl::PointCloud<pcl::PointXYZI>& cloud) {
     std::lock_guard<std::mutex> lock(data_mutex_);
     *current_cloud_ = cloud;
 }
 
-// 更新局部地图
+// 更新局部地图（保持原有接口兼容性，但现在主要使用累积地图）
 void PangolinVisualizer::updateLocalMap(const pcl::PointCloud<pcl::PointXYZI>& map) {
     std::lock_guard<std::mutex> lock(data_mutex_);
-    *local_map_ = map;
+    // 这个接口现在可以选择是否使用，因为我们有累积地图了
+    // 如果你还想保留这个功能，可以保持原样
+    // *local_map_ = map;  // 注释掉，使用累积地图代替
 }
 
 // 初始化Pangolin窗口和UI
@@ -156,11 +234,11 @@ void PangolinVisualizer::initializePangolin() {
             pangolin::ModelViewLookAt(
         0, 0, 250,   // 摄像机位置：X=0, Y=0, Z=100，很高的高度
         0, 0, 0,     // 观察目标点：原点
-        1, 0, 0      // 摄像机“上”方向，这里用X轴方向，保证摄像机是“正顶视”（从上往下看）
+        1, 0, 0      // 摄像机"上"方向，这里用X轴方向，保证摄像机是"正顶视"（从上往下看）
     )
     );
 
-    // 左侧200像素菜单面板
+    // 左侧300像素菜单面板
     pangolin::CreatePanel("menu").SetBounds(0.0, 1.0, 0.0, pangolin::Attach::Pix(300));
 
     // 右侧3D视图，自适应窗口宽高变化
@@ -172,15 +250,23 @@ void PangolinVisualizer::initializePangolin() {
     menu_point_size_ = std::make_unique<pangolin::Var<float>>("menu.Point Size", 1.0f, 1.0f, 10.0f);
     menu_trajectory_length_ = std::make_unique<pangolin::Var<int>>("menu.Trajectory Length", 100000, 100, 100000);
     menu_show_trajectory_ = std::make_unique<pangolin::Var<bool>>("menu.Show Trajectory", true, true);
-    menu_show_current_cloud_ = std::make_unique<pangolin::Var<bool>>("menu.Show Current Cloud", true, true);
-    menu_show_local_map_ = std::make_unique<pangolin::Var<bool>>("menu.Show Local Map", true, true);
-    menu_background_dark_ = std::make_unique<pangolin::Var<bool>>("menu.Dark Background", false, false);
+    menu_show_current_cloud_ = std::make_unique<pangolin::Var<bool>>("menu.Show Current Scan", true, true);
+    menu_show_accumulated_map_ = std::make_unique<pangolin::Var<bool>>("menu.Show Accumulated Map", true, true);
+    // menu_background_dark_ = std::make_unique<pangolin::Var<bool>>("menu.Dark Background", false, false);
     menu_auto_follow_ = std::make_unique<pangolin::Var<bool>>("menu.Auto Follow", true, true);
     
     // 新增点云颜色模式切换 0 = Z轴, 1 = Intensity
-    menu_point_color_mode_ = std::make_unique<pangolin::Var<bool>>("menu.Point Color Mode", true,false);
+    menu_background_dark_ = std::make_unique<pangolin::Var<bool>>("menu.Dark Background", true, true);  // 默认true（暗色背景）
+    menu_point_color_mode_ = std::make_unique<pangolin::Var<bool>>("menu.Intensity Mode", false, true); // 默认false（Z轴模式）
+    
+    // 新增累积地图控制
+    menu_max_map_points_ = std::make_unique<pangolin::Var<int>>("menu.Max Map Points", 
+        static_cast<int>(max_accumulated_points_), 100000, 5000000);
+    menu_clear_map_ = std::make_unique<pangolin::Var<bool>>("menu.Clear Map", false, false);
+    
     BuildIntensityTable();
 }
+
 pangolin::OpenGlMatrix PoseToOpenGlMatrix(const PangolinVisualizer::Pose& pose) {
     Eigen::Matrix4d mat = Eigen::Matrix4d::Identity();
     mat.block<3,3>(0,0) = pose.rotation.toRotationMatrix();
@@ -195,23 +281,18 @@ pangolin::OpenGlMatrix PoseToOpenGlMatrix(const PangolinVisualizer::Pose& pose) 
     }
     return ogl_mat;
 }
+
 // 渲染循环
 void PangolinVisualizer::renderLoop() {
     initializePangolin();
 
-    // 初始化自动跟随菜单
-
     // 用户交互状态和计时器
     bool user_interacting_ = false;
     auto last_interaction_time = std::chrono::steady_clock::now();
-
-    // 你需要在鼠标事件里（可用Pangolin事件回调或poll）设置 user_interacting_ = true，刷新 last_interaction_time
-    // 这里简单示范一个超时机制，若1秒无交互，重置为 false
     auto interaction_timeout = std::chrono::seconds(1);
 
     while (!pangolin::ShouldQuit() && !should_stop_) {
-        // 处理用户交互检测（此处无事件接口，需要你自行添加事件监听）
-        // 简单逻辑示例，建议在你鼠标回调中调用此函数更新状态
+        // 处理用户交互检测
         auto now = std::chrono::steady_clock::now();
         if (user_interacting_ && now - last_interaction_time > interaction_timeout) {
             user_interacting_ = false;
@@ -228,10 +309,24 @@ void PangolinVisualizer::renderLoop() {
         {
             std::lock_guard<std::mutex> lock(data_mutex_);
 
-            if (*menu_auto_follow_ && !user_interacting_ && !trajectory_.empty()) {
-                s_cam_.Follow(PoseToOpenGlMatrix(current_pose_));
+            // 处理清除地图请求
+            if (*menu_clear_map_) {
+                accumulated_map_->clear();
+                *menu_clear_map_ = false;  // 重置按钮状态
+                std::cout << "Accumulated map cleared!" << std::endl;
             }
-            // 否则用户自由操作，保留现有视角，不强制修改
+            
+            // 更新最大点数设置
+            if (static_cast<size_t>(*menu_max_map_points_) != max_accumulated_points_) {
+                max_accumulated_points_ = static_cast<size_t>(*menu_max_map_points_);
+                std::cout << "Max accumulated points updated to: " << max_accumulated_points_ << std::endl;
+            }
+
+            if (*menu_auto_follow_ && !user_interacting_ && !trajectory_.empty()) {
+                Pose temp = current_pose_;
+                temp.rotation.setIdentity();
+                s_cam_.Follow(PoseToOpenGlMatrix(temp));
+            }
 
             d_cam_.Activate(s_cam_);
 
@@ -241,8 +336,13 @@ void PangolinVisualizer::renderLoop() {
             glViewport(static_cast<int>(bounds.l), static_cast<int>(bounds.b), w, h);
 
             if (*menu_show_trajectory_) drawTrajectory();
-            if (*menu_show_current_cloud_ && !current_cloud_->empty()) drawPointCloudColorMode(*current_cloud_);
-            if (*menu_show_local_map_ && !local_map_->empty()) drawPointCloudColorMode(*local_map_);
+            if (*menu_show_current_cloud_ && !current_cloud_->empty()) {
+                // 绘制当前帧点云（用不同颜色区分）
+                drawCurrentScanHighlighted(*current_cloud_);
+            }
+            if (*menu_show_accumulated_map_ && !accumulated_map_->empty()) {
+                drawPointCloudColorMode(*accumulated_map_);
+            }
             drawCurrentPose();
             drawCoordinateFrame();
         }
@@ -258,15 +358,15 @@ void PangolinVisualizer::renderLoop() {
 void PangolinVisualizer::drawTrajectory() {
     if (trajectory_.size() < 2) return;
 
-    glLineWidth(6.0f);  // 加粗轨迹线宽，默认是3.0f，你可以调大
-    glColor4f(1.0f, 0.0f, 0.0f, 1.0f); // 红色，且不透明
+    glLineWidth(6.0f);
+    glColor4f(1.0f, 0.0f, 0.0f, 1.0f); // 红色
     glBegin(GL_LINE_STRIP);
     for (const auto& pose : trajectory_) {
         glVertex3f(pose.position.x(), pose.position.y(), pose.position.z());
     }
     glEnd();
 
-    glPointSize(8.0f); // 点大小也调大些
+    glPointSize(8.0f);
     glBegin(GL_POINTS);
     for (const auto& pose : trajectory_) {
         glVertex3f(pose.position.x(), pose.position.y(), pose.position.z());
@@ -274,7 +374,30 @@ void PangolinVisualizer::drawTrajectory() {
     glEnd();
 }
 
-
+// 新增：绘制当前帧点云（高亮显示）
+void PangolinVisualizer::drawCurrentScanHighlighted(const pcl::PointCloud<pcl::PointXYZI>& cloud) {
+    if (cloud.empty()) return;
+    
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glEnable(GL_POINT_SPRITE);
+    glEnable(GL_PROGRAM_POINT_SIZE);
+    glPointSize(*menu_point_size_ * 1.5f);  // 当前帧点更大一些
+    
+    glBegin(GL_POINTS);
+    for (const auto& p : cloud.points) {
+        if (!std::isfinite(p.x) || !std::isfinite(p.y) || !std::isfinite(p.z)) continue;
+        
+        // 当前帧用亮黄色高亮显示
+        glColor4f(1.0f, 1.0f, 0.0f, 0.9f);  // 亮黄色，高透明度
+        glVertex3f(p.x, p.y, p.z);
+    }
+    glEnd();
+    
+    glDisable(GL_POINT_SPRITE);
+    glDisable(GL_PROGRAM_POINT_SIZE);
+    glDisable(GL_BLEND);
+}
 
 void PangolinVisualizer::drawPointCloudColorMode(const pcl::PointCloud<pcl::PointXYZI>& cloud) {
     if (cloud.empty()) return;
@@ -313,33 +436,18 @@ void PangolinVisualizer::drawPointCloudColorMode(const pcl::PointCloud<pcl::Poin
         
         float norm_val = 0.f;
         if (*menu_point_color_mode_ == false) {
-            // Z轴模式 - 使用归一化的z值，更平滑的渐变
+            // Z轴模式
             norm_val = (p.z - min_z) / z_range;
-            // 可选：增强对比度
-            norm_val = std::pow(norm_val, 0.8f); // gamma校正，让中间值更亮
+            norm_val = std::pow(norm_val, 0.8f);
         } else if (*menu_point_color_mode_ == true) {
-            // Intensity模式 - 使用归一化的强度值
+            // Intensity模式
             norm_val = (p.intensity - min_intensity) / intensity_range;
-            // 可选：根据数据特点调整映射策略
-            
-            // 策略1: 线性映射（默认，最平滑）
-            // norm_val = norm_val; // 已经是归一化的
-            
-            // 策略2: 对数映射（适合强度差异很大的数据）
-            // norm_val = std::log(1.0f + norm_val * 9.0f) / std::log(10.0f);
-            
-            // 策略3: 平方根映射（增强低强度细节）
-            // norm_val = std::sqrt(norm_val);
-            
-            // 策略4: S型曲线（增强中等强度对比度）
-            // norm_val = norm_val * norm_val * (3.0f - 2.0f * norm_val);
         }
         
-        // 确保值在[0,1]范围内
         norm_val = std::max(0.0f, std::min(1.0f, norm_val));
         
         Eigen::Vector4d c = IntensityToRgbPCL(norm_val);
-        glColor4f(c.x(), c.y(), c.z(), c.w());
+        glColor4f(c.x(), c.y(), c.z(), c.w() * 0.6f);  // 降低累积地图透明度
         glVertex3f(p.x, p.y, p.z);
     }
     glEnd();
