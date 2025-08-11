@@ -6,5 +6,10 @@ namespace ROSNoetic {
     class CommonLidarProcessInterface{
         public:
             virtual bool process(const sensor_msgs::PointCloud2 &msg, IESKFSlam::PointCloud &cloud, const double &time_unit) = 0;
+            int num_scans_;
+            int point_filter_num_;
+            double blind_;
+        private:
+
     };
 }

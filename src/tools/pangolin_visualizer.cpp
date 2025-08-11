@@ -88,25 +88,43 @@ void PangolinVisualizer::updatePose(const Eigen::Vector3d& position, const Eigen
     }
 }
 void PangolinVisualizer::BuildIntensityTable() {
-    intensity_color_table_pcl_.reserve(255 * 6);
-    auto make_color = [](int r, int g, int b) -> Eigen::Vector4d { return Eigen::Vector4d(r / 255.0f, g / 255.0f, b / 255.0f, 0.2f); };
+intensity_color_table_pcl_.clear();
+    intensity_color_table_pcl_.reserve(256);
+    
     for (int i = 0; i < 256; i++) {
-        intensity_color_table_pcl_.emplace_back(make_color(255, i, 0));
-    }
-    for (int i = 0; i < 256; i++) {
-        intensity_color_table_pcl_.emplace_back(make_color(255 - i, 0, 255));
-    }
-    for (int i = 0; i < 256; i++) {
-        intensity_color_table_pcl_.emplace_back(make_color(0, 255, i));
-    }
-    for (int i = 0; i < 256; i++) {
-        intensity_color_table_pcl_.emplace_back(make_color(255, 255 - i, 0));
-    }
-    for (int i = 0; i < 256; i++) {
-        intensity_color_table_pcl_.emplace_back(make_color(i, 0, 255));
-    }
-    for (int i = 0; i < 256; i++) {
-        intensity_color_table_pcl_.emplace_back(make_color(0, 255, 255 - i));
+        float t = i / 255.0f;
+        
+        float r, g, b;
+        
+        // Jet colormap算法
+        if (t < 0.125f) {
+            r = 0.0f;
+            g = 0.0f;
+            b = 0.5f + t * 4.0f;
+        } else if (t < 0.375f) {
+            r = 0.0f;
+            g = (t - 0.125f) * 4.0f;
+            b = 1.0f;
+        } else if (t < 0.625f) {
+            r = (t - 0.375f) * 4.0f;
+            g = 1.0f;
+            b = 1.0f - (t - 0.375f) * 4.0f;
+        } else if (t < 0.875f) {
+            r = 1.0f;
+            g = 1.0f - (t - 0.625f) * 4.0f;
+            b = 0.0f;
+        } else {
+            r = 1.0f - (t - 0.875f) * 4.0f;
+            g = 0.0f;
+            b = 0.0f;
+        }
+        
+        // 限制范围并降低饱和度
+        r = std::max(0.0f, std::min(1.0f, r)) * 0.9f;
+        g = std::max(0.0f, std::min(1.0f, g)) * 0.9f;
+        b = std::max(0.0f, std::min(1.0f, b)) * 0.9f;
+        
+        intensity_color_table_pcl_.emplace_back(r, g, b, 0.8f);
     }
 }
 // 更新当前点云
@@ -134,9 +152,9 @@ void PangolinVisualizer::initializePangolin() {
     glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
 
     s_cam_ = pangolin::OpenGlRenderState(
-         pangolin::ProjectionMatrix(1920, 1080, 960, 960, 960, 540, 0.1, 1000),
+         pangolin::ProjectionMatrix(1920, 1080, 960, 960, 960, 540, 0.1, 5000),
             pangolin::ModelViewLookAt(
-        0, 0, 200,   // 摄像机位置：X=0, Y=0, Z=100，很高的高度
+        0, 0, 250,   // 摄像机位置：X=0, Y=0, Z=100，很高的高度
         0, 0, 0,     // 观察目标点：原点
         1, 0, 0      // 摄像机“上”方向，这里用X轴方向，保证摄像机是“正顶视”（从上往下看）
     )
@@ -152,7 +170,7 @@ void PangolinVisualizer::initializePangolin() {
 
     // UI控件
     menu_point_size_ = std::make_unique<pangolin::Var<float>>("menu.Point Size", 1.0f, 1.0f, 10.0f);
-    menu_trajectory_length_ = std::make_unique<pangolin::Var<int>>("menu.Trajectory Length", 10000, 100, 10000);
+    menu_trajectory_length_ = std::make_unique<pangolin::Var<int>>("menu.Trajectory Length", 100000, 100, 100000);
     menu_show_trajectory_ = std::make_unique<pangolin::Var<bool>>("menu.Show Trajectory", true, true);
     menu_show_current_cloud_ = std::make_unique<pangolin::Var<bool>>("menu.Show Current Cloud", true, true);
     menu_show_local_map_ = std::make_unique<pangolin::Var<bool>>("menu.Show Local Map", true, true);
@@ -260,17 +278,19 @@ void PangolinVisualizer::drawTrajectory() {
 
 void PangolinVisualizer::drawPointCloudColorMode(const pcl::PointCloud<pcl::PointXYZI>& cloud) {
     if (cloud.empty()) return;
-
+    
+    // 启用混合模式使透明度生效
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glEnable(GL_POINT_SPRITE);
     glEnable(GL_PROGRAM_POINT_SIZE);
-
     glPointSize(*menu_point_size_);
-
+    
     float min_intensity = std::numeric_limits<float>::max();
     float max_intensity = std::numeric_limits<float>::lowest();
     float min_z = std::numeric_limits<float>::max();
     float max_z = std::numeric_limits<float>::lowest();
-
+    
     for (const auto& p : cloud.points) {
         if (std::isfinite(p.intensity)) {
             min_intensity = std::min(min_intensity, p.intensity);
@@ -281,31 +301,52 @@ void PangolinVisualizer::drawPointCloudColorMode(const pcl::PointCloud<pcl::Poin
             max_z = std::max(max_z, p.z);
         }
     }
-
+    
     float intensity_range = max_intensity - min_intensity;
     if (intensity_range < 1e-6) intensity_range = 1.0f;
     float z_range = max_z - min_z;
     if (z_range < 1e-6) z_range = 1.0f;
-
+    
     glBegin(GL_POINTS);
     for (const auto& p : cloud.points) {
         if (!std::isfinite(p.x) || !std::isfinite(p.y) || !std::isfinite(p.z)) continue;
-
+        
         float norm_val = 0.f;
-        if (*menu_point_color_mode_ == false) {  // Z轴模式
+        if (*menu_point_color_mode_ == false) {
+            // Z轴模式 - 使用归一化的z值，更平滑的渐变
             norm_val = (p.z - min_z) / z_range;
-        } else if (*menu_point_color_mode_ == true) {  // Intensity模式
+            // 可选：增强对比度
+            norm_val = std::pow(norm_val, 0.8f); // gamma校正，让中间值更亮
+        } else if (*menu_point_color_mode_ == true) {
+            // Intensity模式 - 使用归一化的强度值
             norm_val = (p.intensity - min_intensity) / intensity_range;
+            // 可选：根据数据特点调整映射策略
+            
+            // 策略1: 线性映射（默认，最平滑）
+            // norm_val = norm_val; // 已经是归一化的
+            
+            // 策略2: 对数映射（适合强度差异很大的数据）
+            // norm_val = std::log(1.0f + norm_val * 9.0f) / std::log(10.0f);
+            
+            // 策略3: 平方根映射（增强低强度细节）
+            // norm_val = std::sqrt(norm_val);
+            
+            // 策略4: S型曲线（增强中等强度对比度）
+            // norm_val = norm_val * norm_val * (3.0f - 2.0f * norm_val);
         }
-
+        
+        // 确保值在[0,1]范围内
+        norm_val = std::max(0.0f, std::min(1.0f, norm_val));
+        
         Eigen::Vector4d c = IntensityToRgbPCL(norm_val);
         glColor4f(c.x(), c.y(), c.z(), c.w());
         glVertex3f(p.x, p.y, p.z);
     }
     glEnd();
-
+    
     glDisable(GL_POINT_SPRITE);
     glDisable(GL_PROGRAM_POINT_SIZE);
+    glDisable(GL_BLEND);
 }
 
 // 绘制当前位姿

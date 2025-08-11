@@ -30,9 +30,9 @@ IESKFFrontEndWrapper::IESKFFrontEndWrapper(ros::NodeHandle &nh) {
         exit(100);
     }
 
-    // curr_cloud_pub = nh.advertise<sensor_msgs::PointCloud2>("curr_cloud", 100);
-    // path_pub = nh.advertise<nav_msgs::Path>("path", 100);
-    // local_map_pub = nh.advertise<sensor_msgs::PointCloud2>("local_map", 100);
+    curr_cloud_pub = nh.advertise<sensor_msgs::PointCloud2>("curr_cloud", 100);
+    path_pub = nh.advertise<nav_msgs::Path>("path", 100);
+    local_map_pub = nh.advertise<sensor_msgs::PointCloud2>("local_map", 100);
 
     if (mode_ == "realtime") {
         cloud_subscriber = nh.subscribe(lidar_topic, 1000, &IESKFFrontEndWrapper::lidarCloudMsgCallBack, this);
@@ -69,7 +69,7 @@ void IESKFFrontEndWrapper::imuMsgCallBack(const sensor_msgs::ImuPtr &msg) {
 
 void IESKFFrontEndWrapper::publishMsg() {
     auto X = front_end_ptr->readState();
-    IESKFSlam::PCLPointCloud cloud = front_end_ptr->readUndistortedPointCloud();
+    IESKFSlam::PCLPointCloud cloud = front_end_ptr->readCurrentPointCloud();
     pcl::transformPointCloud(cloud, cloud,
                             IESKFSlam::compositeTransform(X.rotation, X.position).cast<float>());
 
@@ -218,6 +218,7 @@ void IESKFFrontEndWrapper::run() {
         ROS_INFO_STREAM("Running in offline mode, playing bag: " << bag_path_ << " at speed factor: " << speed_factor_);
        
         playBagToIESKF_Streaming(bag_path_, speed_factor_);
+        ros::spin();
     } else {
         ROS_INFO("Running in realtime mode (ROS subscription).");
         ros::Rate rate(500);
@@ -239,4 +240,5 @@ void IESKFFrontEndWrapper::savePCD(){
         ROS_WARN("Global map is empty, nothing to save.");
     }
 }
+
 }  // namespace ROSNoetic

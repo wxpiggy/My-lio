@@ -8,6 +8,7 @@ Panels:
         - /Status1
         - /map1
         - /Path1
+        - /curr1
       Splitter Ratio: 0.5
     Tree Height: 701
   - Class: rviz/Selection
@@ -56,8 +57,8 @@ Visualization Manager:
     - Alpha: 0.15000000596046448
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
-        Max Value: 16.22039794921875
-        Min Value: -1.276907205581665
+        Max Value: 35.97474670410156
+        Min Value: 13.559374809265137
         Value: true
       Axis: Z
       Channel Name: intensity
@@ -117,7 +118,7 @@ Visualization Manager:
       Color: 115; 210; 22
       Color Transformer: FlatColor
       Decay Time: 0
-      Enabled: false
+      Enabled: true
       Invert Rainbow: false
       Max Color: 255; 255; 255
       Min Color: 0; 0; 0
@@ -132,7 +133,7 @@ Visualization Manager:
       Unreliable: false
       Use Fixed Frame: true
       Use rainbow: true
-      Value: false
+      Value: true
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
@@ -245,7 +246,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/XYOrbit
-      Distance: 260.8731384277344
+      Distance: 154.07843017578125
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -253,17 +254,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: -62.5165901184082
-        Y: -25.170013427734375
+        X: 71.0589599609375
+        Y: 4.241192817687988
         Z: 3.814697265625e-06
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 1.5697963237762451
+      Pitch: 0.5947965979576111
       Target Frame: <Fixed Frame>
-      Yaw: 1.0672639608383179
+      Yaw: 3.222268581390381
     Saved: ~
 Window Geometry:
   Displays:
