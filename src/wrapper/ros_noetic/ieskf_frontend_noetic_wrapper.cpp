@@ -1,6 +1,8 @@
 #include "wrapper/ros_noetic/ieskf_frontend_noetic_wrapper.h"
 #include "ieskf_slam/globaldefine.h"
 #include "ieskf_slam/tools/timer.h"
+#include "livox_ros_driver/CustomMsg.h"
+#include "livox_ros_driver/CustomPoint.h"
 
 namespace ROSNoetic {
 
@@ -16,15 +18,22 @@ IESKFFrontEndWrapper::IESKFFrontEndWrapper(ros::NodeHandle &nh) {
     nh.param<std::string>("wrapper/imu_topic", imu_topic, "/imu");
     std::string time_unit_str;
     nh.param<std::string>("wrapper/time_unit", time_unit_str, "1e-3");
+
+    nh.param<int>("wrapper/num_scans", num_scans, 6);
+    nh.param<int>("wrapper/point_filter_num", point_filter_num, 1);
+    nh.param<double>("wrapper/blind", blind, 0.011);
+
+
+
     time_unit = std::stod(time_unit_str);
     front_end_ptr = std::make_shared<IESKFSlam::FrontEnd>(CONFIG_DIR + config_file_name, "front_end");
 
     int lidar_type = 0;
     nh.param<int>("wrapper/lidar_type", lidar_type, AVIA);
     if (lidar_type == AVIA) {
-        lidar_process_ptr = std::make_shared<AVIAProcess>();
+        lidar_process_ptr = std::make_shared<AVIAProcess>(num_scans,point_filter_num,blind);
     } else if (lidar_type == VELO) {
-        lidar_process_ptr = std::make_shared<VelodyneProcess>();
+        lidar_process_ptr = std::make_shared<VelodyneProcess>(num_scans,point_filter_num,blind);
     } else {
         ROS_ERROR("Unsupported lidar type");
         exit(100);
@@ -35,7 +44,13 @@ IESKFFrontEndWrapper::IESKFFrontEndWrapper(ros::NodeHandle &nh) {
     local_map_pub = nh.advertise<sensor_msgs::PointCloud2>("local_map", 100);
 
     if (mode_ == "realtime") {
-        cloud_subscriber = nh.subscribe(lidar_topic, 1000, &IESKFFrontEndWrapper::lidarCloudMsgCallBack, this);
+        if(lidar_type == AVIA){
+            cloud_subscriber = nh.subscribe(lidar_topic, 1000, &IESKFFrontEndWrapper::aviaCallBack, this);
+        }
+        if(lidar_type == VELO){
+            cloud_subscriber = nh.subscribe(lidar_topic, 1000, &IESKFFrontEndWrapper::velodyneCallBack, this);
+        }
+        
         imu_subscriber = nh.subscribe(imu_topic, 1000, &IESKFFrontEndWrapper::imuMsgCallBack, this);
     }
     if(visualization_mode_ == "pangolin"){
@@ -52,8 +67,12 @@ IESKFFrontEndWrapper::~IESKFFrontEndWrapper() {
 
     
 }
-
-void IESKFFrontEndWrapper::lidarCloudMsgCallBack(const sensor_msgs::PointCloud2Ptr &msg) {
+void IESKFFrontEndWrapper::aviaCallBack(const livox_ros_driver::CustomMsgPtr &msg) {
+    IESKFSlam::PointCloud cloud;
+    lidar_process_ptr->process(*msg, cloud, time_unit);
+    front_end_ptr->addPointCloud(cloud);
+}
+void IESKFFrontEndWrapper::velodyneCallBack(const sensor_msgs::PointCloud2Ptr &msg) {
     IESKFSlam::PointCloud cloud;
     lidar_process_ptr->process(*msg, cloud, time_unit);
     front_end_ptr->addPointCloud(cloud);
@@ -69,7 +88,7 @@ void IESKFFrontEndWrapper::imuMsgCallBack(const sensor_msgs::ImuPtr &msg) {
 
 void IESKFFrontEndWrapper::publishMsg() {
     auto X = front_end_ptr->readState();
-    IESKFSlam::PCLPointCloud cloud = front_end_ptr->readCurrentPointCloud();
+    IESKFSlam::PCLPointCloud cloud = front_end_ptr->readUndistortedPointCloud();
     pcl::transformPointCloud(cloud, cloud,
                             IESKFSlam::compositeTransform(X.rotation, X.position).cast<float>());
 
@@ -197,10 +216,27 @@ if (first) {
             // 这里如果有耗时需求可以用 Timer::Evaluate 包裹
         }
 
-        auto cloud_msg = msg.instantiate<sensor_msgs::PointCloud2>();
-        if (cloud_msg) {
+        auto velo_msg = msg.instantiate<sensor_msgs::PointCloud2>();
+        if (velo_msg) {
             IESKFSlam::PointCloud cloud;
-            lidar_process_ptr->process(*cloud_msg, cloud, time_unit);
+            lidar_process_ptr->process(*velo_msg, cloud, time_unit);
+
+            front_end_ptr->addPointCloud(cloud);
+
+            bool track_result = false;
+            Timer([&]() {
+                track_result = front_end_ptr->track();
+            }, "完整流程", RESULT_DIR + "track_time.txt");
+
+            if (track_result) {
+                publishMsg();
+            }
+        }
+
+        auto livox_msg = msg.instantiate<livox_ros_driver::CustomMsg>();
+        if (livox_msg) {
+            IESKFSlam::PointCloud cloud;
+            lidar_process_ptr->process(*livox_msg, cloud, time_unit);
 
             front_end_ptr->addPointCloud(cloud);
 

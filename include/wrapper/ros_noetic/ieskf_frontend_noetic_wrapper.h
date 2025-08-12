@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ieskf_slam/modules/frontend/frontend.h"
+#include "livox_ros_driver/CustomMsg.h"
 #include "ros/ros.h"
 #include "sensor_msgs/PointCloud2.h"
 #include "sensor_msgs/Imu.h"
@@ -53,8 +54,13 @@ private:
     bool save_pcd;
     // 可视化模式 "rviz" 或 "pangolin"
     std::string visualization_mode_ = "rviz";
+    int num_scans;
+    int point_filter_num;
+    double blind;
 
-    void lidarCloudMsgCallBack(const sensor_msgs::PointCloud2Ptr &msg);
+
+    void aviaCallBack(const livox_ros_driver::CustomMsgPtr &msg);
+    void velodyneCallBack(const sensor_msgs::PointCloud2Ptr &msg);
     void imuMsgCallBack(const sensor_msgs::ImuPtr &msg);
     void publishMsg();
     void publishMsgPangolin(const IESKFSlam::IESKF::State18 &state, const IESKFSlam::PCLPointCloud &cloud);

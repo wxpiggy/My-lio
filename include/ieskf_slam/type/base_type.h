@@ -2,7 +2,9 @@
 #include <ieskf_slam/type/pointcloud.h>
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/kdtree/kdtree_flann.h>
-#include "/root/catkin_ws/src/I-RIKF-LIO/lib/ikd_Tree/ikd_Tree.h"
+
+#include "/root/ws_livox/src/I-RIKF-LIO/lib/ikd_Tree/ikd_Tree.h"
+
 //#include "ieskf_slam/type/point.h"
 namespace IESKFSlam {
     // 体素滤波器

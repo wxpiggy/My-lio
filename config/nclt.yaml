@@ -10,6 +10,9 @@ wrapper:
   imu_topic: imu_raw
   lidar_type: 1 # velodyne
   time_unit: 1e-6
+  point_filter_num: 6          
+  scan_line: 32
+  blind: 4
 front_end:
   extrin_r: [1,0,0,
             0,1,0,
