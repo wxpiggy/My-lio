@@ -68,7 +68,6 @@ public:
                     point.intensity = p.intensity;
                     point.ring = p.ring;
                     point.offset_time = (point_time - start_time) * 1e9;
-                    std::cout << point.offset_time << std::endl;
                     cloud.cloud_ptr->push_back(point);
                 }
 
