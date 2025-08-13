@@ -23,4 +23,4 @@ pangolin
 
 ## Acknowledgments
  A big thanks to 
-https://github.com/mengkai98/ieskf_slam for his detailed tutorial and excellent code，this project is built based on his work
+https://github.com/mengkai98/eq_lio for his detailed tutorial and excellent code，this project is built based on his work

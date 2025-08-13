@@ -1,4 +1,4 @@
-#include "ieskf_slam/tools/pangolin_visualizer.h"
+#include "eq_lio/tools/pangolin_visualizer.h"
 #include <Eigen/src/Core/Matrix.h>
 #include <pangolin/pangolin.h>
 #include <chrono>
@@ -219,7 +219,7 @@ void PangolinVisualizer::updateLocalMap(const pcl::PointCloud<pcl::PointXYZI>& m
 
 // 初始化Pangolin窗口和UI
 void PangolinVisualizer::initializePangolin() {
-    pangolin::CreateWindowAndBind("IESKF SLAM Visualization", 1920, 1080);
+    pangolin::CreateWindowAndBind("EQKF SLAM Visualization", 1920, 1080);
 
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
@@ -351,7 +351,7 @@ void PangolinVisualizer::renderLoop() {
 
         std::this_thread::sleep_for(std::chrono::milliseconds(30));
     }
-    pangolin::DestroyWindow("IESKF SLAM Visualization");
+    pangolin::DestroyWindow("EQKF SLAM Visualization");
 }
 
 // 绘制轨迹

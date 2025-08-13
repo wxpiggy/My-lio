@@ -1,6 +1,6 @@
 #include "wrapper/ros_noetic/ieskf_frontend_noetic_wrapper.h"
-#include "ieskf_slam/globaldefine.h"
-#include "ieskf_slam/tools/timer.h"
+#include "eq_lio/globaldefine.h"
+#include "eq_lio/tools/timer.h"
 #include "livox_ros_driver/CustomMsg.h"
 #include "livox_ros_driver/CustomPoint.h"
 
@@ -26,7 +26,7 @@ IESKFFrontEndWrapper::IESKFFrontEndWrapper(ros::NodeHandle &nh) {
 
 
     time_unit = std::stod(time_unit_str);
-    front_end_ptr = std::make_shared<IESKFSlam::FrontEnd>(CONFIG_DIR + config_file_name, "front_end");
+    front_end_ptr = std::make_shared<EQLIO::FrontEnd>(CONFIG_DIR + config_file_name, "front_end");
 
     int lidar_type = 0;
     nh.param<int>("wrapper/lidar_type", lidar_type, AVIA);
@@ -68,18 +68,18 @@ IESKFFrontEndWrapper::~IESKFFrontEndWrapper() {
     
 }
 void IESKFFrontEndWrapper::aviaCallBack(const livox_ros_driver::CustomMsgPtr &msg) {
-    IESKFSlam::PointCloud cloud;
+    EQLIO::PointCloud cloud;
     lidar_process_ptr->process(*msg, cloud, time_unit);
     front_end_ptr->addPointCloud(cloud);
 }
 void IESKFFrontEndWrapper::velodyneCallBack(const sensor_msgs::PointCloud2Ptr &msg) {
-    IESKFSlam::PointCloud cloud;
+    EQLIO::PointCloud cloud;
     lidar_process_ptr->process(*msg, cloud, time_unit);
     front_end_ptr->addPointCloud(cloud);
 }
 
 void IESKFFrontEndWrapper::imuMsgCallBack(const sensor_msgs::ImuPtr &msg) {
-    IESKFSlam::IMU imu;
+    EQLIO::IMU imu;
     imu.time_stamp.fromNsec(msg->header.stamp.toNSec());
     imu.acceleration = {msg->linear_acceleration.x, msg->linear_acceleration.y, msg->linear_acceleration.z};
     imu.gyroscope = {msg->angular_velocity.x, msg->angular_velocity.y, msg->angular_velocity.z};
@@ -88,9 +88,9 @@ void IESKFFrontEndWrapper::imuMsgCallBack(const sensor_msgs::ImuPtr &msg) {
 
 void IESKFFrontEndWrapper::publishMsg() {
     auto X = front_end_ptr->readState();
-    IESKFSlam::PCLPointCloud cloud = front_end_ptr->readUndistortedPointCloud();
+    EQLIO::PCLPointCloud cloud = front_end_ptr->readUndistortedPointCloud();
     pcl::transformPointCloud(cloud, cloud,
-                            IESKFSlam::compositeTransform(X.rotation, X.position).cast<float>());
+                            EQLIO::compositeTransform(X.rotation, X.position).cast<float>());
 
     if (visualization_mode_ == "rviz") {
         static nav_msgs::Path path;
@@ -115,7 +115,7 @@ void IESKFFrontEndWrapper::publishMsg() {
         cloud_msg.header.stamp = ros::Time::now();
         curr_cloud_pub.publish(cloud_msg);
 
-        IESKFSlam::PCLPointCloud local_map = front_end_ptr->readCurrentLocalMap();
+        EQLIO::PCLPointCloud local_map = front_end_ptr->readCurrentLocalMap();
         pcl::toROSMsg(local_map, cloud_msg);
         cloud_msg.header.frame_id = "map";
         cloud_msg.header.stamp = ros::Time::now();
@@ -126,8 +126,8 @@ void IESKFFrontEndWrapper::publishMsg() {
     }
 }
 
-void IESKFFrontEndWrapper::publishMsgPangolin(const IESKFSlam::IESKF::State18 &state,
-                                              const IESKFSlam::PCLPointCloud &cloud) {
+void IESKFFrontEndWrapper::publishMsgPangolin(const EQLIO::EQKF::State18 &state,
+                                              const EQLIO::PCLPointCloud &cloud) {
     if (!pangolin_viz_) return;
     
     // 转换当前帧点云格式
@@ -204,7 +204,7 @@ if (first) {
 
        auto imu_msg = msg.instantiate<sensor_msgs::Imu>();
         if (imu_msg) {
-            IESKFSlam::IMU imu;
+            EQLIO::IMU imu;
             imu.time_stamp.fromNsec(imu_msg->header.stamp.toNSec());
             imu.acceleration = {imu_msg->linear_acceleration.x,
                                 imu_msg->linear_acceleration.y,
@@ -218,7 +218,7 @@ if (first) {
 
         auto velo_msg = msg.instantiate<sensor_msgs::PointCloud2>();
         if (velo_msg) {
-            IESKFSlam::PointCloud cloud;
+            EQLIO::PointCloud cloud;
             lidar_process_ptr->process(*velo_msg, cloud, time_unit);
 
             front_end_ptr->addPointCloud(cloud);
@@ -235,7 +235,7 @@ if (first) {
 
         auto livox_msg = msg.instantiate<livox_ros_driver::CustomMsg>();
         if (livox_msg) {
-            IESKFSlam::PointCloud cloud;
+            EQLIO::PointCloud cloud;
             lidar_process_ptr->process(*livox_msg, cloud, time_unit);
 
             front_end_ptr->addPointCloud(cloud);

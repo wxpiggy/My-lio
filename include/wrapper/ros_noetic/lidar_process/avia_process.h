@@ -1,7 +1,7 @@
 #pragma once
 #include "common_lidar_process_interface.h"
-#include "ieskf_slam/type/point.h"
-#include "ieskf_slam/type/pointcloud.h"
+#include "eq_lio/type/point.h"
+#include "eq_lio/type/pointcloud.h"
 #include <execution>
 
 
@@ -14,7 +14,7 @@ public:
         // cloud_full_ 和 cloud_out_ 会动态resize
     }
 
-    bool process(const LidarMsgVariant& msg, IESKFSlam::PointCloud& cloud, const double& time_unit) override {
+    bool process(const LidarMsgVariant& msg, EQLIO::PointCloud& cloud, const double& time_unit) override {
         return std::visit([&](auto&& m) -> bool {
             using T = std::decay_t<decltype(m)>;
             if constexpr (std::is_same_v<T, livox_ros_driver::CustomMsg>) {
@@ -60,10 +60,10 @@ public:
                 }
 
                 // 这里你可以选择把 cloud_out_ 赋值到外部 cloud 结构中，
-                // 下面是一个示例，需要根据你 IESKFSlam::PointCloud 的具体结构调整
+                // 下面是一个示例，需要根据你 EQLIO::PointCloud 的具体结构调整
                 cloud.cloud_ptr->clear();
                 for (auto& pt : cloud_out_.points) {
-                    IESKFSlam::Point p;
+                    EQLIO::Point p;
                     p.x = pt.x; p.y = pt.y; p.z = pt.z;
                     p.intensity = pt.intensity;
                     p.offset_time = pt.offset_time;
@@ -85,7 +85,7 @@ private:
     int point_filter_num_;
     double blind_;
 
-    IESKFSlam::PCLPointCloud cloud_out_;
-    IESKFSlam::PCLPointCloud cloud_full_;
+    EQLIO::PCLPointCloud cloud_out_;
+    EQLIO::PCLPointCloud cloud_full_;
 };
 }

@@ -35,7 +35,7 @@ public:
     }
 
     bool process(const LidarMsgVariant &msg,
-                 IESKFSlam::PointCloud &cloud,
+                 EQLIO::PointCloud &cloud,
                  const double &time_unit) override 
     {
         return std::visit([&](auto &&m) -> bool {
@@ -59,7 +59,7 @@ public:
                     double dist_sq = p.x * p.x + p.y * p.y + p.z * p.z;
                     if (dist_sq < blind_ * blind_) continue;
 
-                    IESKFSlam::Point point;
+                    EQLIO::Point point;
                     double point_time = p.time * time_unit + end_time;
 
                     point.x = p.x;

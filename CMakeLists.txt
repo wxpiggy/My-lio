@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.0.2)
-project(ieskf_slam)
+project(eq_lio)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
 SET( CMAKE_CXX_FLAGS "-std=c++17 -O3" )
@@ -39,7 +39,7 @@ include_directories("/usr/include/eigen3")
 catkin_package(
 
 #  INCLUDE_DIRS include
-#  LIBRARIES ieskf_slam
+#  LIBRARIES eq_lio
 #  CATKIN_DEPENDS roscpp rospy sensor_msgs
 #  DEPENDS system_lib
 )
@@ -50,11 +50,11 @@ include_directories(
   ${PCL_INCLUDE_DIRS}
   ${YAML_CPP_INCLUDEDIR}
 )
-SET(IESKF_SLAM_FILE
-    src/ieskf_slam/modules/frontend/frontend.cpp
-    src/ieskf_slam/modules/ieskf/ieskf.cpp
-    src/ieskf_slam/modules/map/rect_map_manager.cpp
-    src/ieskf_slam/modules/frontbackPropagate/frontback_propagate.cpp
+SET(eq_lio_FILE
+    src/eq_lio/modules/frontend/frontend.cpp
+    src/eq_lio/modules/ieskf/ieskf.cpp
+    src/eq_lio/modules/map/rect_map_manager.cpp
+    src/eq_lio/modules/frontbackPropagate/frontback_propagate.cpp
     src/tools/pangolin_visualizer.cpp
     
 
@@ -70,7 +70,7 @@ lib/ikd_Tree/ikd_Tree.cpp
 
 add_executable(ieskf_frontend_node src/app/ros_noetic/ieskf_noetic_running_node.cpp
 ${NOETIC_FRONTEND_WRAPPER_FILE}
-${IESKF_SLAM_FILE}
+${eq_lio_FILE}
 ${LIB_FILE})
 
 

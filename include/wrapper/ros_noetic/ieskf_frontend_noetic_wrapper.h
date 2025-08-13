@@ -1,6 +1,6 @@
 #pragma once
 
-#include "ieskf_slam/modules/frontend/frontend.h"
+#include "eq_lio/modules/frontend/frontend.h"
 #include "livox_ros_driver/CustomMsg.h"
 #include "ros/ros.h"
 #include "sensor_msgs/PointCloud2.h"
@@ -9,8 +9,8 @@
 #include "nav_msgs/Path.h"
 #include "wrapper/ros_noetic/lidar_process/avia_process.h"
 #include "wrapper/ros_noetic/lidar_process/velodyne_process.h"
-#include "ieskf_slam/globaldefine.h"
-#include "ieskf_slam/tools/pangolin_visualizer.h"
+#include "eq_lio/globaldefine.h"
+#include "eq_lio/tools/pangolin_visualizer.h"
 #include <Eigen/src/Core/Matrix.h>
 #include <rosbag/bag.h>
 #include <rosbag/view.h>
@@ -27,7 +27,7 @@ enum LIDAR_TYPE {
 
 class IESKFFrontEndWrapper {
 private:
-    IESKFSlam::FrontEnd::Ptr front_end_ptr;
+    EQLIO::FrontEnd::Ptr front_end_ptr;
     std::unique_ptr<PangolinVisualizer> pangolin_viz_;
     std::string config_file_name, lidar_topic, imu_topic;
 
@@ -41,7 +41,7 @@ private:
     std::shared_ptr<CommonLidarProcessInterface> lidar_process_ptr;
 
     // 当前状态
-    IESKFSlam::PCLPointCloud curr_cloud;
+    EQLIO::PCLPointCloud curr_cloud;
 
     Eigen::Quaterniond curr_q;
     Eigen::Vector3d curr_t;
@@ -63,7 +63,7 @@ private:
     void velodyneCallBack(const sensor_msgs::PointCloud2Ptr &msg);
     void imuMsgCallBack(const sensor_msgs::ImuPtr &msg);
     void publishMsg();
-    void publishMsgPangolin(const IESKFSlam::IESKF::State18 &state, const IESKFSlam::PCLPointCloud &cloud);
+    void publishMsgPangolin(const EQLIO::EQKF::State18 &state, const EQLIO::PCLPointCloud &cloud);
     void run();
     void playBagToIESKF_Streaming(const std::string &bag_path, double speed_factor);
     void initializePangolinVisualization();
