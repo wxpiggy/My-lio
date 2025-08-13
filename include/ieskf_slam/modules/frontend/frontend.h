@@ -8,7 +8,6 @@
 #include "ieskf_slam/modules/map/rect_map_manager.h"
 #include "ieskf_slam/modules/frontbackPropagate/frontbackPropagate.h"
 #include "ieskf_slam/modules/frontend/lio_zh_model.h"
-#include "ieskf_slam/modules/invkf/invkf.h"
 #include <fstream>
 namespace IESKFSlam
 {
@@ -23,11 +22,9 @@ namespace IESKFSlam
         PCLPointCloud current_pointcloud;
         
         std::shared_ptr<IESKF> ieskf_ptr;
-        std::shared_ptr<INVKF> invkf_ptr;
         std::shared_ptr<RectMapManager> map_ptr;
         std::shared_ptr<FrontbackPropagate> fbpropagate_ptr;
         LIOZHModel::Ptr lio_zh_model_ptr;
-        LIOZHModelINV::Ptr lio_zh_model_inv_ptr;
         PCLPointCloudPtr undistorted_point_cloud_ptr;
         PCLPointCloudPtr filter_point_cloud_ptr;
         VoxelFilter voxel_filter;

@@ -31,7 +31,7 @@ namespace IESKFSlam {
         if (extrin_v.size() == 3) {
             extrin_t << extrin_v[0], extrin_v[1], extrin_v[2];
         }
-        readParam("use_inv", use_inv, 0);
+        
         
         readParam("trajectory_save",trajectory_save,false);
         readParam("trajectory_save_file", trajectory_save_file_name, std::string("result.txt"));
@@ -48,17 +48,11 @@ namespace IESKFSlam {
 
         filter_point_cloud_ptr = pcl::make_shared<PCLPointCloud>();
 
-        if (!use_inv) {
-            ieskf_ptr = std::make_shared<IESKF>(config_file_path, "ieskf");
-            lio_zh_model_ptr = std::make_shared<LIOZHModel>();
-            ieskf_ptr->calc_zh_ptr = lio_zh_model_ptr;
-            lio_zh_model_ptr->prepare(map_ptr->readKDtree(), filter_point_cloud_ptr, map_ptr->getLocalMap());
-        } else {
-            invkf_ptr = std::make_shared<INVKF>(config_file_path, "invkf");
-            lio_zh_model_inv_ptr = std::make_shared<LIOZHModelINV>();
-            invkf_ptr->calc_zh_ptr = lio_zh_model_inv_ptr;
-            lio_zh_model_inv_ptr->prepare(map_ptr->readKDtree(), filter_point_cloud_ptr, map_ptr->getLocalMap());
-        }
+        ieskf_ptr = std::make_shared<IESKF>(config_file_path, "ieskf");
+        lio_zh_model_ptr = std::make_shared<LIOZHModel>();
+        ieskf_ptr->calc_zh_ptr = lio_zh_model_ptr;
+        lio_zh_model_ptr->prepare(map_ptr->readKDtree(), filter_point_cloud_ptr, map_ptr->getLocalMap());
+
 
 
     }
@@ -90,7 +84,7 @@ namespace IESKFSlam {
                 return false;
             }
 
-            if (!use_inv) {
+  
                 fbpropagate_ptr->propagate(mg, ieskf_ptr);
                 undistorted_point_cloud_ptr = mg.cloud.cloud_ptr;
                 voxel_filter.setInputCloud(mg.cloud.cloud_ptr);
@@ -105,25 +99,7 @@ namespace IESKFSlam {
                 }
                 map_ptr->addScan(filter_point_cloud_ptr, x.rotation, x.position);
                 return true;
-            } else {
-                fbpropagate_ptr->propagate(mg, invkf_ptr);
-                undistorted_point_cloud_ptr = mg.cloud.cloud_ptr;
-                voxel_filter.setInputCloud(mg.cloud.cloud_ptr);
-                voxel_filter.filter(*filter_point_cloud_ptr);
-                invkf_ptr->update();
-                Eigen::Vector3d pos = invkf_ptr->getPosition();
-                Eigen::Quaterniond rot = Eigen::Quaterniond(invkf_ptr->getRotation());
-                if(trajectory_save && trajectory_save_file.is_open()){
-                    trajectory_save_file << std::setprecision(15) << mg.lidar_end_time << " "
-                            << pos.x() << " " << pos.y() << " " << pos.z()<< " "
-                            << rot.x() << " " << rot.y() << " " << rot.z()<< " "
-                            << rot.w() << std::endl;
-                }
-                // auto x = invkf_ptr->getX();
-                map_ptr->addScan(filter_point_cloud_ptr, Eigen::Quaterniond(invkf_ptr->getRotation()),
-                                 invkf_ptr->getPosition());
-                return true;
-            }
+
         }
         return false;
     }
@@ -173,7 +149,7 @@ namespace IESKFSlam {
         return true;
     }
     void FrontEnd::initState(MeasureGroup &mg) {
-        if (!use_inv) {
+
             static int imu_count = 0;
             static Eigen::Vector3d mean_acc{0, 0, 0};
             auto &ieskf = *ieskf_ptr;
@@ -202,47 +178,12 @@ namespace IESKFSlam {
                 imu_inited = true;
             }
             return;
-        } else {
-            static int imu_count = 0;
-            static Eigen::Vector3d mean_acc{0, 0, 0};
-            static Eigen::Vector3d bg{0, 0, 0};
-            auto &invkf = *invkf_ptr;  //引用
-            if (imu_inited) {
-                return;
-            }
-
-            for (size_t i = 0; i < mg.imus.size(); i++) {
-                imu_count++;
-                // auto x = invkf.getX();
-                mean_acc += mg.imus[i].acceleration;
-                bg += mg.imus[i].gyroscope;
-                // invkf.setX(x);
-            }
-            if (imu_count >= 5) {
-                // auto x = ieskf.getX();
-                mean_acc /= double(imu_count);
-                bg /= double(imu_count);
-                imu_scale = GRAVITY / mean_acc.norm();
-                fbpropagate_ptr->imu_scale = imu_scale;
-                fbpropagate_ptr->last_imu = mg.imus.back();
-                // 重力的符号为负 就和fastlio公式一致
-                invkf.setGravity(-mean_acc / mean_acc.norm() * GRAVITY);
-                invkf.setGyroscopeBias(bg);
-                imu_inited = true;
-            }
-            return;
-        }
+        
+        
     }
     IESKF::State18 FrontEnd::readState() {
-        if (!use_inv) {
-            return ieskf_ptr->getX();
-        } else {
-            IESKF::State18 x;
-            x.rotation = Eigen::Quaterniond(invkf_ptr->getRotation());
-            x.position = invkf_ptr->getPosition();
+        return ieskf_ptr->getX();
 
-            return x;
-        }
     }
 
     // IESKF::State18 FrontEnd::readState_inv() {return nullptr;}

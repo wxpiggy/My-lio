@@ -1,6 +1,6 @@
 #pragma once
 #include "ieskf_slam/modules/ieskf/ieskf.h"
-#include "ieskf_slam/modules/invkf/invkf.h"
+
 #include "ieskf_slam/type/measure_group.h"
 
 namespace IESKFSlam {
@@ -36,6 +36,6 @@ namespace IESKFSlam {
         FrontbackPropagate();
         ~FrontbackPropagate();
         void propagate(MeasureGroup &mg, IESKF::Ptr ieskf_ptr);
-        void propagate(MeasureGroup &mg, INVKF::Ptr invkf_ptr);
+
     };
 }  // namespace IESKFSlam
